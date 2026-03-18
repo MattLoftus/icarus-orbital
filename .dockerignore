@@ -1,0 +1,12 @@
+venv/
+dashboard/
+node_modules/
+__pycache__/
+*.pyc
+.git/
+kernels/
+data_cache/
+scripts/
+tests/
+*.md
+.DS_Store

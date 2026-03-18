@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+kernels/
+node_modules/
+dist/
+.env
+*.egg-info/
+data_cache/
+dashboard/dist/
+*.log
