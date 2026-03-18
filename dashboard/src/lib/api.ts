@@ -1,4 +1,6 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.PROD
+  ? 'https://icarus-orbital.fly.dev/api'
+  : '/api';
 
 export interface PlanetState {
   name: string;
