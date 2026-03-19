@@ -1,7 +1,43 @@
 import { create } from 'zustand';
 import type { PlanetState, TransferResult, PorkchopData, NHATSTarget, OrbitData } from '../lib/api';
+import { allPlanetPositionsAtDate, planetPositionAtDate } from '../lib/orbits';
 
 export type ViewMode = 'solar-system' | 'porkchop' | 'targets' | 'guide';
+
+// Compute approximate planet positions client-side so they render instantly
+// (before the API cold-starts). API response overwrites with precise positions.
+const INITIAL_EPOCH = '2026-03-15';
+const approxPositions = allPlanetPositionsAtDate(INITIAL_EPOCH);
+const initialPlanets: PlanetState[] = Object.entries(approxPositions).map(([name, position]) => ({
+  name,
+  position,
+  velocity: [0, 0, 0],
+  distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
+  speed_kms: 0,
+}));
+
+// Generate approximate orbit paths client-side for instant rendering
+function generateApproxOrbit(body: string, steps: number = 128): OrbitData {
+  const startDate = new Date('2026-01-01T12:00:00Z');
+  // Look up period from orbits.ts constants (mirrored here for orbit generation)
+  const periods: Record<string, number> = {
+    mercury: 87.97, venus: 224.7, earth: 365.25, mars: 686.97,
+  };
+  const periodDays = periods[body] || 365.25;
+  const positions: [number, number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const date = new Date(startDate.getTime() + (i / steps) * periodDays * 86400000);
+    const dateStr = date.toISOString().slice(0, 10);
+    positions.push(planetPositionAtDate(body, dateStr));
+  }
+  return { body, positions, period_days: periodDays };
+}
+
+const initialOrbits = new Map<string, OrbitData>();
+for (const body of ['mercury', 'venus', 'earth', 'mars']) {
+  initialOrbits.set(body, generateApproxOrbit(body));
+}
+
 export type CameraPreset = 'default' | 'top-down' | 'inner-system' | 'outer-system';
 
 interface AppState {
@@ -84,9 +120,9 @@ export const useStore = create<AppState>((set) => ({
   epoch: '2026-03-15',
   setEpoch: (epoch) => set({ epoch }),
 
-  planets: [],
+  planets: initialPlanets,
   setPlanets: (planets) => set({ planets }),
-  orbits: new Map(),
+  orbits: initialOrbits,
   setOrbit: (body, orbit) => set((state) => {
     const orbits = new Map(state.orbits);
     orbits.set(body, orbit);
