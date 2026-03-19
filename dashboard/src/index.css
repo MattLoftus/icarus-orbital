@@ -203,6 +203,7 @@ html, body, #root {
 }
 .input {
   width: 100%;
+  min-width: 0;
   background: var(--void);
   border: 1px solid var(--panel-border);
   border-radius: 3px;
@@ -212,6 +213,10 @@ html, body, #root {
   font-size: 12px;
   outline: none;
   transition: border-color 0.15s;
+}
+input[type="date"].input {
+  font-size: 11px;
+  padding: 7px 4px;
 }
 .input:focus { border-color: rgba(0, 212, 224, 0.4); }
 select.input { appearance: none; cursor: pointer; }
@@ -241,7 +246,8 @@ select.input { appearance: none; cursor: pointer; }
 .btn-ghost:hover { background: var(--cyan-dim); border-color: var(--cyan); }
 .btn-sm { padding: 4px 8px; font-size: 9px; }
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+.grid-2 > * { min-width: 0; }
 .row { display: flex; gap: 8px; align-items: center; }
 .flex-1 { flex: 1; }
 

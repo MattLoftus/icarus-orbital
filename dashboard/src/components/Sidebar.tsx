@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../store/store';
 import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop } from '../lib/api';
+import type { PlanetState } from '../lib/api';
 import { suggestWindow } from '../lib/windows';
+import type { TransferWindow } from '../lib/windows';
+import { allPlanetPositionsAtDate } from '../lib/orbits';
 // ReferenceMission type used implicitly via getReferenceMission
 
 const BODIES = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn'];
+
+function addDaysStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 const REF_MISSIONS = [
   { id: 'voyager', label: 'Voyager 2', sub: 'E→J→S→U→N' },
@@ -20,6 +29,8 @@ const REF_MISSIONS = [
 export function Sidebar() {
   const s = useStore();
   const [refLoading, setRefLoading] = useState<string | null>(null);
+  const [windowsExpanded, setWindowsExpanded] = useState(false);
+  const [refExpanded, setRefExpanded] = useState(false);
 
   const applyWindow = (from: string, to: string) => {
     const state = useStore.getState();
@@ -47,6 +58,30 @@ export function Sidebar() {
   };
 
   const window = suggestWindow(s.departureBody, s.arrivalBody, s.epoch);
+
+  // Compute upcoming transfer windows (next 5)
+  const upcomingWindows = useMemo(() => {
+    const windows: TransferWindow[] = [];
+    // Start searching from current epoch
+    let searchEpoch = s.epoch;
+    for (let i = 0; i < 5; i++) {
+      const w = suggestWindow(s.departureBody, s.arrivalBody, searchEpoch);
+      // Deduplicate: skip if same departure date as the currently selected or previous window
+      const isDupe = w.depDate === s.departureDate ||
+        windows.some(prev => Math.abs(new Date(prev.depDate).getTime() - new Date(w.depDate).getTime()) < 30 * 86400000);
+      if (isDupe) {
+        // Advance past this window by ~60% of synodic period to reach next one
+        searchEpoch = addDaysStr(w.depDate, Math.max(60, w.synodicMonths * 15));
+        i--; // Don't count this iteration
+        if (i < -5) break; // Safety valve
+        continue;
+      }
+      windows.push(w);
+      // Advance past this window to find the next one
+      searchEpoch = addDaysStr(w.depDate, Math.max(60, w.synodicMonths * 15));
+    }
+    return windows;
+  }, [s.departureBody, s.arrivalBody, s.epoch, s.departureDate]);
 
   const loadPlanets = async () => {
     try {
@@ -148,6 +183,55 @@ export function Sidebar() {
           <button onClick={computePorkchop} className="btn btn-ghost flex-1" disabled={s.porkchopLoading}>
             {s.porkchopLoading ? 'Generating...' : 'Porkchop'}
           </button>
+        </div>
+
+        {/* Upcoming windows */}
+        <div style={{ marginTop: '8px' }}>
+          <button
+            onClick={() => setWindowsExpanded(!windowsExpanded)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px', width: '100%',
+              background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+              fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.6px',
+              textTransform: 'uppercase', color: 'var(--text-dim)',
+            }}
+          >
+            <span style={{ fontSize: '8px', transform: windowsExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
+            Upcoming Windows
+          </button>
+          {windowsExpanded && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+              {upcomingWindows.map((w, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    useStore.setState({
+                      departureDate: w.depDate,
+                      arrivalDate: w.arrDate,
+                      porkDepStart: w.depStart,
+                      porkDepEnd: w.depEnd,
+                      porkArrStart: w.arrStart,
+                      porkArrEnd: w.arrEnd,
+                      transfer: null,
+                      porkchop: null,
+                    });
+                  }}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '5px 8px', background: 'var(--void)', border: '1px solid var(--panel-border)',
+                    borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                    {w.depDate}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)' }}>
+                    {w.hohmannTofDays}d
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -265,53 +349,89 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Reference Missions */}
+      {/* Reference Missions — collapsible */}
       <div className="panel">
-        <div className="panel-header"><div className="panel-header-dot" style={{ background: 'var(--amber)' }} />Reference Missions</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {REF_MISSIONS.map(m => (
-            <button
-              key={m.id}
-              disabled={refLoading === m.id}
-              onClick={async () => {
-                setRefLoading(m.id);
-                try {
-                  const mission = await getReferenceMission(m.id);
-                  useStore.setState({
-                    transfer: {
-                      departure_body: mission.sequence[0],
-                      arrival_body: mission.sequence[mission.sequence.length - 1],
-                      departure_utc: mission.events[0]?.date || '',
-                      arrival_utc: mission.events[mission.events.length - 1]?.date || '',
-                      tof_days: 0,
-                      dv_departure: 0, dv_arrival: 0, dv_total: 0,
-                      c3_launch: 0, v_inf_arrival: 0,
-                      v1_transfer: [0, 0, 0], v2_transfer: [0, 0, 0],
-                      trajectory_positions: mission.trajectory_positions,
-                    } as any,
-                    referenceMission: mission,
-                    viewMode: 'solar-system',
-                    animationProgress: 0,
-                    animationPlaying: false,
-                  });
-                } catch (e) { s.setError(String(e)); }
-                finally { setRefLoading(null); }
-              }}
-              style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
-                borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                {refLoading === m.id ? 'Loading...' : m.label}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
-                {m.sub}
-              </span>
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setRefExpanded(!refExpanded)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            marginBottom: refExpanded ? '10px' : 0,
+          }}
+        >
+          <div className="panel-header-dot" style={{ background: 'var(--amber)' }} />
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
+          }}>
+            Reference Missions
+          </span>
+          <span style={{
+            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
+            transform: refExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+          }}>▶</span>
+        </button>
+        {refExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {REF_MISSIONS.map(m => (
+              <button
+                key={m.id}
+                disabled={refLoading === m.id}
+                onClick={async () => {
+                  setRefLoading(m.id);
+                  try {
+                    const mission = await getReferenceMission(m.id);
+                    const launchDate = mission.events[0]?.date || '';
+                    // Immediately set approximate planet positions for the mission epoch
+                    const approx = allPlanetPositionsAtDate(launchDate);
+                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
+                      name, position, velocity: [0, 0, 0] as [number, number, number],
+                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
+                      speed_kms: 0,
+                    }));
+                    const stateUpdate: Record<string, any> = {
+                      planets: approxPlanets,
+                      transfer: {
+                        departure_body: mission.sequence[0],
+                        arrival_body: mission.sequence[mission.sequence.length - 1],
+                        departure_utc: launchDate,
+                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
+                        tof_days: 0,
+                        dv_departure: 0, dv_arrival: 0, dv_total: 0,
+                        c3_launch: 0, v_inf_arrival: 0,
+                        trajectory_positions: mission.trajectory_positions,
+                      },
+                      referenceMission: mission,
+                      viewMode: 'solar-system',
+                      animationProgress: 0,
+                      animationPlaying: false,
+                      epoch: launchDate,
+                    };
+                    useStore.setState(stateUpdate);
+                    // Refine with precise positions from API (non-blocking)
+                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
+                    for (const body of ['mercury', 'venus', 'earth', 'mars']) {
+                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
+                    }
+                  } catch (e) { s.setError(String(e)); }
+                  finally { setRefLoading(null); }
+                }}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
+                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
+                  {refLoading === m.id ? 'Loading...' : m.label}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
+                  {m.sub}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Error */}
