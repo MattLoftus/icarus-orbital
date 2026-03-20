@@ -203,12 +203,12 @@ function TransferArc({ positions, progress, events }: {
 
   return (
     <group>
-      {/* Full arc dim */}
-      <Line points={allPoints} color="#22b8a0" lineWidth={1} transparent opacity={0.06} />
+      {/* Full arc — bright when not yet started, dim during playback */}
+      <Line points={allPoints} color="#22b8a0" lineWidth={progress <= 0 ? 1.5 : 1} transparent opacity={progress <= 0 ? 0.5 : 0.06} />
       {/* Traversed */}
-      {traversed.length >= 2 && <Line points={traversed} color="#33ddc4" lineWidth={2} />}
+      {progress > 0 && traversed.length >= 2 && <Line points={traversed} color="#33ddc4" lineWidth={2} />}
       {/* Remaining */}
-      {remaining.length >= 2 && <Line points={remaining} color="#22b8a0" lineWidth={1} transparent opacity={0.2} />}
+      {progress > 0 && remaining.length >= 2 && <Line points={remaining} color="#22b8a0" lineWidth={1} transparent opacity={0.2} />}
 
       {/* Flyby markers (from reference missions) */}
       {flybyMarkers.map((m, idx) => (
