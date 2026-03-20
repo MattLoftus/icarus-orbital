@@ -335,9 +335,9 @@ function EclipticGrid() {
   );
 }
 
-function CameraController() {
+function CameraController({ animatedPlanets }: { animatedPlanets: { name: string; position: [number, number, number] }[] }) {
   const { camera } = useThree();
-  const { cameraTarget, cameraPreset, planets, setCameraTarget, setCameraPreset } = useStore();
+  const { cameraTarget, cameraPreset, setCameraTarget, setCameraPreset } = useStore();
   const controlsRef = useRef<any>(null);
 
   useEffect(() => {
@@ -353,8 +353,8 @@ function CameraController() {
   }, [cameraPreset, camera, setCameraPreset]);
 
   useEffect(() => {
-    if (!cameraTarget || planets.length === 0) return;
-    const planet = planets.find(p => p.name === cameraTarget);
+    if (!cameraTarget || animatedPlanets.length === 0) return;
+    const planet = animatedPlanets.find(p => p.name === cameraTarget);
     if (!planet) return;
     const pos = toScene(planet.position);
     camera.position.set(pos[0] + 0.5, pos[1] + 0.7, pos[2] + 0.5);
@@ -363,7 +363,7 @@ function CameraController() {
       controlsRef.current.update();
     }
     setCameraTarget(null);
-  }, [cameraTarget, planets, camera, setCameraTarget]);
+  }, [cameraTarget, animatedPlanets, camera, setCameraTarget]);
 
   return (
     <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.05} minDistance={0.2} maxDistance={40} rotateSpeed={0.5} />
@@ -423,7 +423,7 @@ function Scene() {
       )}
 
       <AnimationDriver />
-      <CameraController />
+      <CameraController animatedPlanets={animatedPlanets} />
     </>
   );
 }
