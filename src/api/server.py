@@ -80,7 +80,8 @@ def get_planet_positions(epoch: str):
         raise HTTPException(400, f"Invalid epoch: {e}")
 
     AU = 1.496e8
-    planets = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
+    planets = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune',
+               'pluto', 'ceres', 'vesta', 'eris', 'haumea', 'makemake']
     result = []
     for name in planets:
         state = get_body_state(name, et)
@@ -106,6 +107,8 @@ def get_planet_orbit(body: str, epoch: str = '2026-01-01', points: int = 360):
     periods = {
         'mercury': 88, 'venus': 225, 'earth': 365, 'mars': 687,
         'jupiter': 4333, 'saturn': 10759, 'uranus': 30687, 'neptune': 60190,
+        'pluto': 90560, 'ceres': 1681, 'vesta': 1325,
+        'eris': 204199, 'haumea': 103774, 'makemake': 111845,
     }
     period_days = periods.get(body.lower(), 365)
     et_end = et_start + period_days * 86400

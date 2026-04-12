@@ -24,6 +24,12 @@ const PLANET_CONFIG: Record<string, {
   saturn:  { color: '#e8d090', size: 0.065, orbitColor: '#5a5038', texture: '/textures/saturn.jpg', ring: true },
   uranus:  { color: '#88ccdd', size: 0.04,  orbitColor: '#2a4848', texture: '/textures/uranus.jpg' },
   neptune: { color: '#4466cc', size: 0.04,  orbitColor: '#2a3058', texture: '/textures/neptune.jpg' },
+  pluto:   { color: '#c4a882', size: 0.015, orbitColor: '#5a4a38', texture: '/textures/pluto.jpg' },
+  ceres:   { color: '#a0a0a0', size: 0.015, orbitColor: '#555555', texture: '/textures/ceres.jpg' },
+  vesta:   { color: '#b8b0a0', size: 0.012, orbitColor: '#555555', texture: '/textures/vesta.jpg' },
+  eris:    { color: '#d0ccc4', size: 0.015, orbitColor: '#4a4840' },
+  haumea:  { color: '#c8c0b8', size: 0.013, orbitColor: '#4a4840' },
+  makemake:{ color: '#c4a088', size: 0.013, orbitColor: '#4a3828' },
 };
 
 const CAMERA_PRESETS: Record<CameraPreset, { pos: [number, number, number]; target: [number, number, number] }> = {
@@ -41,16 +47,6 @@ function SunBody() {
       <mesh>
         <sphereGeometry args={[0.08, 48, 48]} />
         <meshBasicMaterial map={texture} />
-      </mesh>
-      {/* Inner glow */}
-      <mesh>
-        <sphereGeometry args={[0.11, 32, 32]} />
-        <meshBasicMaterial color="#ffcc44" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      {/* Outer corona */}
-      <mesh>
-        <sphereGeometry args={[0.18, 32, 32]} />
-        <meshBasicMaterial color="#ff8800" transparent opacity={0.04} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
       <pointLight color="#ffeedd" intensity={2.0} decay={0} />
     </group>
@@ -74,7 +70,7 @@ function TexturedPlanet({ name, position }: { name: string; position: [number, n
       <mesh ref={meshRef}>
         <sphereGeometry args={[config.size, 32, 32]} />
         {texture ? (
-          <meshPhongMaterial map={texture} shininess={4} />
+          <meshPhongMaterial map={texture} shininess={4} emissive="#ffffff" emissiveIntensity={name === 'earth' ? 0.4 : 0} emissiveMap={name === 'earth' ? texture : undefined} />
         ) : (
           <meshBasicMaterial color={config.color} />
         )}
@@ -82,10 +78,10 @@ function TexturedPlanet({ name, position }: { name: string; position: [number, n
       {/* Atmosphere glow */}
       {config.atmosphere && (
         <mesh>
-          <sphereGeometry args={[config.size * 1.15, 32, 32]} />
+          <sphereGeometry args={[config.size * 1.02, 32, 32]} />
           <meshBasicMaterial
             color={config.atmosphere}
-            transparent opacity={0.06}
+            transparent opacity={0.08}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             side={THREE.BackSide}
@@ -353,7 +349,17 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
   }, [cameraPreset, camera, setCameraPreset]);
 
   useEffect(() => {
-    if (!cameraTarget || animatedPlanets.length === 0) return;
+    if (!cameraTarget) return;
+    if (cameraTarget === 'sun') {
+      camera.position.set(0.5, 0.7, 0.5);
+      if (controlsRef.current) {
+        controlsRef.current.target.set(0, 0, 0);
+        controlsRef.current.update();
+      }
+      setCameraTarget(null);
+      return;
+    }
+    if (animatedPlanets.length === 0) return;
     const planet = animatedPlanets.find(p => p.name === cameraTarget);
     if (!planet) return;
     const pos = toScene(planet.position);
@@ -366,7 +372,7 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
   }, [cameraTarget, animatedPlanets, camera, setCameraTarget]);
 
   return (
-    <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.05} minDistance={0.2} maxDistance={40} rotateSpeed={0.5} />
+    <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.05} minDistance={0.05} maxDistance={200} rotateSpeed={0.5} />
   );
 }
 
@@ -440,7 +446,8 @@ function CameraControls() {
     { key: 'inner-system', label: 'Inner' },
     { key: 'outer-system', label: 'Outer' },
   ];
-  const bodies = ['earth', 'mars', 'venus', 'jupiter', 'saturn'];
+  const bodies = ['sun', 'earth', 'mars', 'venus', 'jupiter', 'saturn', 'uranus', 'neptune',
+    'pluto', 'ceres', 'vesta', 'eris', 'haumea', 'makemake'];
 
   const togglePlay = useCallback(() => {
     if (animationProgress >= 1) { setAnimationProgress(0); setAnimationPlaying(true); }
@@ -466,7 +473,7 @@ function CameraControls() {
         {bodies.map(b => (
           <button key={b} onClick={() => setCameraTarget(b)} style={{
             ...overlayBtn, border: '1px solid rgba(255,255,255,0.06)',
-            color: PLANET_CONFIG[b]?.color || '#888',
+            color: b === 'sun' ? '#ffcc44' : (PLANET_CONFIG[b]?.color || '#888'),
           }}>
             {b}
           </button>
@@ -504,7 +511,7 @@ function CameraControls() {
 export function SolarSystem() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <Canvas camera={{ position: [0, 4, 6], fov: 45, near: 0.001, far: 200 }} gl={{ antialias: true }}>
+      <Canvas camera={{ position: [0, 4, 6], fov: 45, near: 0.001, far: 500 }} gl={{ antialias: true }}>
         <color attach="background" args={['#020408']} />
         <Scene />
       </Canvas>

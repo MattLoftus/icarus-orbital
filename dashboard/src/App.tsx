@@ -22,7 +22,7 @@ function TopBar() {
 
   return (
     <div className="top-bar">
-      <div className="top-bar-title">I.C.A.R.U.S.</div>
+      <div className="top-bar-title" style={{ cursor: 'pointer' }} onClick={() => setViewMode('solar-system')}>I.C.A.R.U.S.</div>
       <div className="top-bar-sep" />
       <div className="top-bar-nav">
         {tabs.map(({ mode, label }) => (
@@ -204,9 +204,10 @@ function App() {
       try {
         const planets = await getPlanets('2026-03-15');
         setPlanets(planets);
-        for (const body of ['mercury', 'venus', 'earth', 'mars']) {
-          const orbit = await getOrbit(body, '2026-01-01');
-          setOrbit(body, orbit);
+        const orbitBodies = ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+          'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake'];
+        for (const body of orbitBodies) {
+          getOrbit(body, '2026-01-01').then(orbit => setOrbit(body, orbit)).catch(() => {});
         }
       } catch (e) {
         setError(`Failed to load: ${e}`);

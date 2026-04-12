@@ -30,7 +30,8 @@ export function Guide() {
           </Card>
           <Card accent="var(--green)" title="Real Ephemeris">
             Planet positions come from NASA's SPICE toolkit (DE440S ephemeris), accurate to sub-kilometer precision.
-            NEA targets from the NHATS database represent real mission-accessible asteroids.
+            Dwarf planets and minor bodies (Pluto, Ceres, Vesta, Eris, Haumea, Makemake) use Keplerian
+            propagation from JPL orbital elements. NEA targets from the NHATS database represent real mission-accessible asteroids.
           </Card>
         </Grid>
       </Section>
@@ -102,12 +103,11 @@ export function Guide() {
       <Section title="Reading the Dashboard">
         <Grid cols={2}>
           <Card accent="var(--cyan)" title="3D Solar System">
-            The main view shows planet positions from SPICE ephemeris data at the selected epoch.
-            Orbit paths show one full orbital period. The transfer arc (teal) shows the computed
-            trajectory with departure (teal dot) and arrival (amber dot) markers. Flyby encounters
-            are marked with body-colored rings. Use the camera presets (top-left) to switch between
-            perspective, ecliptic top-down, and inner/outer views. Planet focus buttons (top-right)
-            snap the camera to a specific body.
+            The main view shows 14 bodies: 8 planets, 5 dwarf planets (Pluto, Ceres, Eris, Haumea, Makemake),
+            and Vesta — all with orbital traces. Pluto, Ceres, and Vesta have mission-derived textures
+            (New Horizons, Dawn). Planet positions from SPICE ephemeris; minor bodies from Keplerian elements.
+            The transfer arc (teal) shows the computed trajectory with departure and arrival markers.
+            Camera presets (top-left) switch between views. Focus buttons (top-right) snap to any body including the Sun.
           </Card>
           <Card accent="var(--amber)" title="Porkchop Plot">
             X-axis is arrival date, Y-axis is departure date. Color encodes total Δv — dark blue/teal
@@ -159,10 +159,11 @@ export function Guide() {
       {/* Data Sources */}
       <Section title="Data Sources">
         <Grid cols={2}>
-          <Card accent="var(--text-dim)" title="JPL SPICE (DE440S)">
-            Planet ephemeris from NASA's Navigation and Ancillary Information Facility. The DE440S
-            kernel covers 1849–2150 with sub-kilometer accuracy for all major planets. Accessed
-            via SpiceyPy (Python bindings for the SPICE toolkit).
+          <Card accent="var(--text-dim)" title="JPL SPICE (DE440S) + Keplerian Elements">
+            Planet ephemeris from NASA's SPICE toolkit. The DE440S kernel covers 1849–2150 with
+            sub-kilometer accuracy for all 8 planets. Dwarf planets and minor bodies (Pluto, Ceres,
+            Vesta, Eris, Haumea, Makemake) use Keplerian propagation from JPL orbital elements —
+            no extra kernels needed, accurate for centuries.
           </Card>
           <Card accent="var(--text-dim)" title="NASA NHATS">
             Near-Earth Object Human Space Flight Accessible Targets Study. A continuously updated
@@ -177,15 +178,16 @@ export function Guide() {
         <Grid cols={2}>
           <Card accent="var(--cyan)" title="Backend (Python)">
             <TechList items={[
-              'Custom Lambert solver (universal variable + Stumpff functions)',
-              'Patched conics gravity assist model',
-              'Keplerian orbit propagation',
-              'MGA-1DSM optimizer (multi-restart differential evolution)',
+              'Lambert solver with multi-revolution support (universal variable + Stumpff)',
+              'Patched conics gravity assist + powered flyby physics',
+              'Keplerian orbit propagation (planets + 6 minor bodies)',
+              'MGA optimizer (pure MGA + MGA-1DSM, multi-restart DE)',
+              'GTOP Cassini1 benchmark: 5.14 km/s (4.25% gap to published 4.93)',
               'Sims-Flanagan low-thrust trajectory optimizer',
-              'NEA transfers via Keplerian propagation from orbital elements',
+              'Automated gravity assist sequence discovery',
               'SpiceyPy for SPICE ephemeris (DE440S)',
               'FastAPI REST server with LRU caching',
-              '8 reference missions + GTOP Cassini1 benchmark',
+              '8 reference missions with animated playback',
             ]} />
           </Card>
           <Card accent="var(--amber)" title="Frontend (React)">

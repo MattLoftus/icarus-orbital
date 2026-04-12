@@ -88,9 +88,10 @@ export function Sidebar() {
       s.setError(null);
       const planets = await getPlanets(s.epoch);
       s.setPlanets(planets);
-      for (const body of ['mercury', 'venus', 'earth', 'mars']) {
-        const orbit = await getOrbit(body, s.epoch);
-        s.setOrbit(body, orbit);
+      const orbitBodies = ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+        'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake'];
+      for (const body of orbitBodies) {
+        getOrbit(body, s.epoch).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
       }
     } catch (e) { s.setError(String(e)); }
   };
@@ -410,7 +411,8 @@ export function Sidebar() {
                     useStore.setState(stateUpdate);
                     // Refine with precise positions from API (non-blocking)
                     getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
-                    for (const body of ['mercury', 'venus', 'earth', 'mars']) {
+                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
                       getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
                     }
                   } catch (e) { s.setError(String(e)); }

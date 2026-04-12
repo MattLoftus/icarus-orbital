@@ -4,7 +4,7 @@ import os
 import threading
 import numpy as np
 import spiceypy as spice
-from .constants import KERNEL_DIR, NAIF_IDS
+from .constants import KERNEL_DIR, NAIF_IDS, KEPLERIAN_BODIES
 
 _kernels_loaded = False
 _spice_lock = threading.Lock()
@@ -61,6 +61,18 @@ def get_body_state(body: str, et: float, center: str = 'sun') -> np.ndarray:
     Returns:
         ndarray of shape (6,) — [x, y, z] in km, [vx, vy, vz] in km/s
     """
+    # For Keplerian bodies (no SPICE kernel), use orbital element propagation
+    if body.lower() in KEPLERIAN_BODIES:
+        from .kepler import propagate_state_from_elements
+        elems = KEPLERIAN_BODIES[body.lower()]
+        # Convert SPICE ET to Julian Date: ET=0 is J2000 = JD 2451545.0
+        target_jd = 2451545.0 + et / 86400.0
+        return propagate_state_from_elements(
+            elems['a_au'], elems['e'], elems['i_deg'],
+            elems['om_deg'], elems['w_deg'], elems['ma_deg'],
+            elems['epoch_jd'], target_jd,
+        )
+
     load_kernels()
 
     body_id = str(NAIF_IDS.get(body.lower(), body))
