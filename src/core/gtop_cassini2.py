@@ -291,3 +291,142 @@ def cassini2_run(n_restarts: int = 15, max_iter: int = 1000,
         'gap_percent': float((best_f / published_best - 1) * 100),
         'x': best_x.tolist(),
     }
+
+
+def cassini2_staged(seed: int = 42, verbose: bool = True) -> Dict:
+    """Staged optimization for Cassini2 — warm-started from Cassini1 knowledge.
+
+    Stage 1: Fix flyby params (rp, beta) at defaults. Optimize 13 core variables
+             (t0, Vinf, u, v, T1-5, eta1-5) with DE.
+    Stage 2: Take best from Stage 1, unfreeze all 22 variables, refine with DE
+             in a narrowed search region.
+    Stage 3: Multi-method local polish.
+    """
+    import gc
+    from scipy.optimize import minimize
+
+    # Warm-start values from Cassini1 best (t0=-769, T1=176, T2=416, T3=52, T4=1031, T5=4016)
+    # and reasonable defaults for MGA-1DSM-specific variables
+    warm_t0 = -770.0
+    warm_tofs = [176.0, 416.0, 52.0, 1031.0, 2000.0]  # T5 capped at upper bound
+
+    strategies = ['best1bin', 'rand1bin', 'currenttobest1bin',
+                  'best2bin', 'rand2bin', 'randtobest1bin']
+    mutations = [(0.5, 1.5), (0.3, 1.0), (0.7, 1.9),
+                 (0.4, 1.2), (0.6, 1.8), (0.5, 1.5)]
+
+    # ---- Stage 1: Optimize 13 core variables, fix flyby params ----
+    if verbose:
+        print('=== Stage 1: 13 core variables (flyby params fixed) ===', flush=True)
+
+    # Default flyby params: middle of bounds
+    default_rps = [2.0, 2.0, 2.5, 50.0]   # Venus, Venus, Earth, Jupiter (body radii)
+    default_betas = [0.0, 0.0, 0.0, 0.0]  # neutral rotation
+
+    # 13-variable bounds: [t0, Vinf, u, v, T1-5, eta1-5]
+    bounds_13 = [
+        (-1000.0, 0.0), (3.0, 5.0), (0.0, 1.0), (0.0, 1.0),
+        (100.0, 400.0), (100.0, 500.0), (30.0, 300.0), (400.0, 1600.0), (800.0, 2200.0),
+        (0.01, 0.9), (0.01, 0.9), (0.01, 0.9), (0.01, 0.9), (0.01, 0.9),
+    ]
+
+    def eval_13(x13):
+        """Evaluate with fixed flyby params."""
+        x22 = np.zeros(22)
+        x22[:14] = x13
+        x22[14:18] = default_rps
+        x22[18:22] = default_betas
+        return cassini2_evaluate(x22)
+
+    best_x13, best_f = None, np.inf
+    for i in range(8):
+        gc.collect()
+        r = differential_evolution(
+            eval_13, bounds=bounds_13, maxiter=400, popsize=30,
+            tol=1e-6, seed=seed + i * 137, disp=False, polish=True,
+            strategy=strategies[i % 6], mutation=mutations[i % 6],
+            recombination=0.9, init='latinhypercube',
+        )
+        tag = ''
+        if np.isfinite(r.fun) and r.fun < best_f:
+            best_f = r.fun
+            best_x13 = r.x.copy()
+            tag = ' ***BEST***'
+        if verbose:
+            val = f'{r.fun:.4f}' if np.isfinite(r.fun) else 'INF'
+            print(f'  S1 R{i + 1}: {val}{tag}', flush=True)
+
+    if best_x13 is None:
+        return {'total_dv': float('inf'), 'published_best': 8.383, 'gap_percent': float('inf'), 'x': []}
+
+    # ---- Stage 2: Refine all 22 variables around Stage 1 best ----
+    if verbose:
+        print(f'\nStage 1 best: {best_f:.4f}', flush=True)
+        print('=== Stage 2: Full 22 variables (narrowed bounds) ===', flush=True)
+
+    # Build full 22-variable starting point
+    x22_start = np.zeros(22)
+    x22_start[:14] = best_x13
+    x22_start[14:18] = default_rps
+    x22_start[18:22] = default_betas
+
+    # Narrowed bounds: ±30% around Stage 1 best for core vars,
+    # full range for flyby params
+    orig_bounds = CASSINI2_BOUNDS
+    narrow = []
+    for i in range(22):
+        lo, hi = orig_bounds[i]
+        if i < 14:
+            # Narrow around Stage 1 best
+            center = x22_start[i]
+            width = 0.3 * (hi - lo)
+            narrow.append((max(lo, center - width), min(hi, center + width)))
+        else:
+            # Full range for flyby params
+            narrow.append((lo, hi))
+
+    best_x22, best_f22 = x22_start.copy(), best_f
+    for i in range(6):
+        gc.collect()
+        r = differential_evolution(
+            cassini2_evaluate, bounds=narrow, maxiter=400, popsize=30,
+            tol=1e-6, seed=seed + 5000 + i * 137, disp=False, polish=True,
+            strategy=strategies[i % 6], mutation=mutations[i % 6],
+            recombination=0.9, init='latinhypercube',
+        )
+        tag = ''
+        if np.isfinite(r.fun) and r.fun < best_f22:
+            best_f22 = r.fun
+            best_x22 = r.x.copy()
+            tag = ' ***BEST***'
+        if verbose:
+            val = f'{r.fun:.4f}' if np.isfinite(r.fun) else 'INF'
+            print(f'  S2 R{i + 1}: {val}{tag}', flush=True)
+
+    # ---- Stage 3: Multi-method local polish ----
+    if verbose:
+        print(f'\nStage 2 best: {best_f22:.4f}', flush=True)
+        print('=== Stage 3: Local polish ===', flush=True)
+
+    for method in ['Nelder-Mead', 'Powell', 'COBYLA']:
+        try:
+            r = minimize(cassini2_evaluate, best_x22, method=method,
+                         options={'maxiter': 10000})
+            if np.isfinite(r.fun) and r.fun < best_f22:
+                best_f22 = r.fun
+                best_x22 = r.x.copy()
+                if verbose:
+                    print(f'  {method}: {r.fun:.4f} ***IMPROVED***', flush=True)
+            elif verbose:
+                val = f'{r.fun:.4f}' if np.isfinite(r.fun) else 'INF'
+                print(f'  {method}: {val}', flush=True)
+        except Exception:
+            pass
+
+    published_best = 8.383
+    return {
+        'total_dv': float(best_f22),
+        'published_best': published_best,
+        'gap_percent': float((best_f22 / published_best - 1) * 100),
+        'x': best_x22.tolist(),
+    }
