@@ -146,7 +146,7 @@ Given NHATS's 6,822 targets, optimize multi-asteroid tours (visit N asteroids wi
 - Multi-rev Lambert, CMA-ES, MBH all tested — DE with 12+ restarts remains the best algorithm
 
 **TODO — in order:**
-1. [~] **Cassini2** — MGA-1DSM, EVVEJS, 22 decision variables. Published best: 8.383 km/s. C evaluator (100× speedup) enables 1.65M evals/restart. Best: **10.63 km/s (26.8% gap)** with 20 restarts × 1.5K iter × pop 50 (33M total evals). The 22D landscape is extremely multimodal — DE results range 10-35 km/s across restarts. Further improvement likely requires even more restarts or a different global search strategy.
+1. [~] **Cassini2** — MGA-1DSM, EVVEJS, 22 decision variables. Published best: 8.383 km/s. C evaluator ported (100× speedup). Best feasible result: **~10-11 km/s (~30% gap)**. Tested: 200 cheap DE restarts + L-BFGS-B + narrow refinement (11.28), 20 heavy DE restarts (10.63), many-restarts + unbounded polish (4.50 but out-of-bounds — invalid). The 22D multimodal landscape is the bottleneck, not compute speed. Note: previous 10.21 (Python) used unbounded Powell and may have been partially out-of-bounds.
 2. [ ] **Messenger** — MGA-1DSM, E-E-V-V-M, Earth-Earth resonance. Published best: 8.630 km/s. Different topology tests generalization.
 3. [ ] **Rosetta** — MGA-1DSM, E-E-M-E-asteroid rendezvous. Published best: 1.343 km/s. Tests rendezvous constraint (zero relative velocity at arrival).
 4. [ ] **Novel mission designs** — original trajectory design (multi-NEA tours, sample return, outer planet probes with real launch windows). The payoff for all the benchmark work.
