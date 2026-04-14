@@ -201,7 +201,12 @@ Sufficient for preliminary mission design (which is our use case). Treats each f
 | `core/lambert.py` | Lambert solver — universal variable + Stumpff functions, ~4,300 solves/sec |
 | `core/flyby.py` | Unpowered gravity assist (patched conics), deflection angle, feasibility checks |
 | `core/mga.py` | MGA-1DSM trajectory optimizer — 4+n_legs variables, scipy `differential_evolution`. Used for general multi-flyby missions in the app |
-| `core/gtop.py` | GTOP Cassini1 benchmark — pure MGA (6 variables), proper powered flyby physics, Saturn orbit insertion. Best: 5.14 km/s (4.25% gap to published 4.93) |
+| `core/gtop.py` | GTOP Cassini1 benchmark — pure MGA (6 variables) + GTOP analytical ephemeris. Best: 4.86 km/s (beats published 4.93) |
+| `core/gtop_cassini2.py` | GTOP Cassini2 benchmark — MGA-1DSM (22 variables). Best: 8.64 km/s (3% gap to published 8.38) |
+| `core/gtop_eval.c` | C implementation of full GTOP evaluation pipeline (100× speedup). Compile to .dylib, called via ctypes |
+| `core/gtop_fast.py` | ctypes wrapper for C evaluator — drop-in `cassini1_evaluate_fast()` and `cassini2_evaluate_fast()` |
+| `core/island_model.py` | Island model optimizer: custom DE + PSO with ring-topology migration. Key to cracking Cassini2 |
+| `core/jpl_lp.py` | JPL low-precision analytical ephemeris (Standish 1992) — exact GTOP planet positions |
 | `core/kepler.py` | Keplerian propagation from orbital elements — used for asteroids and dwarf planets without SPICE kernels |
 | `core/ephemeris.py` | SPICE wrapper for planet/body state vectors. Falls back to Keplerian propagation for bodies in `KEPLERIAN_BODIES` (Pluto, Ceres, Vesta, Eris, Haumea, Makemake) |
 | `core/propagate.py` | Trajectory point generation (Kepler universal variable) |
@@ -251,6 +256,62 @@ React 19 + TypeScript + Vite 7 + react-three-fiber + Zustand + Tailwind CSS 4.
 ---
 
 ## Changelog
+
+### 2026-04-13 — Cassini2: Island model breakthrough (8.64 km/s, 3% gap)
+
+Implemented a custom island model optimizer (`island_model.py`) with DE + PSO and ring-topology migration. Combined with the C evaluator, this cracked the 22D Cassini2 problem.
+
+**Island model architecture:**
+- 8 islands: 6 DE (diverse strategies/mutation rates) + 2 PSO (different inertia/acceleration)
+- Ring migration every 30-50 generations: best individual from each island replaces worst in the next
+- 10 independent archipelago runs with different seeds to sample diverse basins
+
+**Result progression:**
+| Approach | Result | Gap | Time |
+|---|---|---|---|
+| Python DE (8 restarts) | ~10-11 km/s | ~30% | 50 min |
+| C evaluator + 20 DE restarts | 10.63 km/s | 26.8% | 47 min |
+| 200 cheap restarts + bounded polish | 11.28 km/s | 34.6% | 17 min |
+| **Island model (10 arch × 2000 gen)** | **8.636 km/s** | **3.0%** | **169 sec** |
+
+**Key insights:**
+1. PSO found basins that DE missed — in multiple archipelagos, PSO discovered the good basin first, then migration spread it to DE islands for refinement
+2. Many cheap archipelago runs (11s each) >> few expensive DE restarts — basin diversity matters more than per-basin optimization depth
+3. Unbounded local polish (Powell/NM) is dangerous — the 4.50 result from an earlier run was invalid (variables pushed out of bounds). Always use L-BFGS-B or DE with polish=True for bounded problems
+4. Narrow DE refinement (±10% bounds around best) consistently improves by 0.1-1.0 km/s
+
+Files: `src/core/island_model.py` (new), `src/core/gtop_cassini2.py`
+
+### 2026-04-12 — C evaluation port (100× speedup)
+
+Ported the full GTOP evaluation pipeline to C (`gtop_eval.c`): JPL LP ephemeris, Stumpff functions, Lambert solver, Kepler propagation, unpowered flyby (pykep convention), Saturn insertion, and both Cassini1/Cassini2 objective functions. Zero dependencies (just math.h).
+
+- **42,683 Cassini1 evals/sec** (vs ~430 in Python) — **97× speedup**
+- **28,684 Cassini2 evals/sec** (vs ~290 in Python) — **118× speedup**
+- Results match Python to 6 decimal places
+- Compile: `cc -O3 -shared -fPIC -o gtop_eval.dylib gtop_eval.c -lm`
+- Python wrapper via ctypes: `gtop_fast.py`
+
+This made the island model tractable — 10 archipelago runs in 109 seconds.
+
+Files: `src/core/gtop_eval.c` (new), `src/core/gtop_fast.py` (new)
+
+### 2026-04-11 — Cassini2 implementation (MGA-1DSM, 22 variables)
+
+Implemented the full MGA-1DSM Cassini2 benchmark:
+- 22 decision variables: t0, Vinf, u, v, T1-5, eta1-5, rp1-4, beta1-4
+- Per-leg DSM: ballistic coast for η×TOF, then Lambert to next body
+- Unpowered flybys with rp/β parameterization (pykep fb_prop convention)
+- Departure v_inf direction in ecliptic J2000 frame (not local planet frame — this was a bug that took debugging to find)
+
+Initial result with scipy DE: ~10-12 km/s (feasible, bounds-valid). The 22D landscape is extremely multimodal — DE results vary 10-35 km/s across restarts depending on which basin is found.
+
+**Debugging notes:**
+- Published x* evaluates poorly with our ephemeris (expected — x* was optimized for pagmo's exact LP coefficients, and the MGA-1DSM is exquisitely sensitive to departure direction)
+- Flyby rotation frame: must use `cross(v_inf, v_planet)` as reference (pykep convention), NOT ecliptic pole — using the wrong frame causes flybys to send the spacecraft in completely wrong directions
+- Unbounded polish bug: Powell/Nelder-Mead don't respect bounds, producing invalid "good" results (4.50 km/s with negative Vinf). Fixed by using L-BFGS-B and bounded DE refinement
+
+Files: `src/core/gtop_cassini2.py` (new)
 
 ### 2026-04-10 — GTOP Cassini1 v4: Analytical ephemeris + flyby model fix
 
@@ -313,4 +374,4 @@ Other UI fixes:
 
 Files: `src/core/constants.py`, `src/core/ephemeris.py`, `src/api/server.py`, `dashboard/src/components/SolarSystem.tsx`, `dashboard/src/App.tsx`, `dashboard/src/components/Sidebar.tsx`, `dashboard/public/textures/{pluto,ceres,vesta}.jpg`
 
-*Last updated: 2026-04-10*
+*Last updated: 2026-04-13*
