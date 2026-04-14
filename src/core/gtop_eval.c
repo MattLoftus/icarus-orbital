@@ -429,33 +429,79 @@ double cassini1_eval(const double *x) {
     return total_dv;
 }
 
-/* ---- Cassini2 evaluate (MGA-1DSM, 22 variables, GTOP ephemeris) ---- */
+/* ---- Keplerian state from orbital elements (for custom bodies like 67P) ---- */
 
-double cassini2_eval(const double *x) {
-    /*
-     * x[0]: t0, x[1]: Vinf, x[2]: u, x[3]: v
-     * x[4..8]: T1..T5, x[9..13]: eta1..eta5
-     * x[14..17]: rp1..rp4 (body radii), x[18..21]: beta1..beta4
-     */
-    static const int seq[] = { EARTH, VENUS, VENUS, EARTH, JUPITER, SATURN };
+static void keplerian_state(double a_au, double ecc, double i_deg,
+                            double Om_deg, double om_deg, double M0_deg,
+                            double epoch_mjd2000, double target_mjd2000,
+                            double *state) {
+    double a_km = a_au * AU_KM;
+    double n = sqrt(MU_SUN / (a_km * a_km * a_km));  /* rad/s */
+    double dt = (target_mjd2000 - epoch_mjd2000) * 86400.0;
+    double M = M0_deg * DEG2RAD + n * dt;
+    M = fmod(M, 2.0 * M_PI);
+    if (M < 0) M += 2.0 * M_PI;
 
+    double E = solve_kepler(M, ecc);
+    double cosE = cos(E), sinE = sin(E);
+    double sqrt1me2 = sqrt(1.0 - ecc * ecc);
+    double denom = 1.0 - ecc * cosE;
+
+    double x_p = a_km * (cosE - ecc);
+    double y_p = a_km * sqrt1me2 * sinE;
+    double vx_p = -a_km * n * sinE / denom;
+    double vy_p = a_km * sqrt1me2 * n * cosE / denom;
+
+    double inc = i_deg * DEG2RAD;
+    double Om = Om_deg * DEG2RAD;
+    double om = om_deg * DEG2RAD;
+    double cO = cos(Om), sO = sin(Om), co = cos(om), so = sin(om);
+    double ci = cos(inc), si = sin(inc);
+
+    double R00 = cO*co - sO*so*ci, R01 = -cO*so - sO*co*ci;
+    double R10 = sO*co + cO*so*ci, R11 = -sO*so + cO*co*ci;
+    double R20 = so*si,             R21 = co*si;
+
+    state[0] = R00*x_p + R01*y_p;  state[1] = R10*x_p + R11*y_p;  state[2] = R20*x_p + R21*y_p;
+    state[3] = R00*vx_p + R01*vy_p; state[4] = R10*vx_p + R11*vy_p; state[5] = R20*vx_p + R21*vy_p;
+}
+
+/* ---- Generic MGA-1DSM evaluation core ---- */
+
+/*
+ * mga_1dsm_core: shared evaluation logic for all MGA-1DSM problems.
+ *
+ * seq[n_bodies]: body indices (use -1 for custom Keplerian body)
+ * n_legs = n_bodies - 1
+ * x layout: [t0, Vinf, u, v, T1..Tn, eta1..etan, rp1..rp(n-1), beta1..beta(n-1)]
+ * add_vinf_dep: if true, add launch Vinf to objective
+ *
+ * For custom body (seq[i] == -1), custom_state must contain the precomputed state.
+ */
+static double mga_1dsm_core(const double *x, const int *seq, int n_bodies,
+                            int add_vinf_dep, const double *custom_state) {
+    int n_legs = n_bodies - 1;
     double t0 = x[0], vinf_mag = x[1], u = x[2], v = x[3];
-    const double *tofs = x + 4;   /* T1..T5 in days */
-    const double *etas = x + 9;   /* eta1..eta5 */
-    const double *rps  = x + 14;  /* rp1..rp4 in body radii */
-    const double *betas = x + 18; /* beta1..beta4 */
+    const double *tofs = x + 4;
+    const double *etas = x + 4 + n_legs;
+    const double *rps  = x + 4 + 2 * n_legs;
+    const double *betas = x + 4 + 3 * n_legs - 1;
 
     /* Encounter epochs */
-    double epochs[6];
+    double epochs[8];
     epochs[0] = t0;
-    for (int i = 0; i < 5; i++) epochs[i+1] = epochs[i] + tofs[i];
+    for (int i = 0; i < n_legs; i++) epochs[i+1] = epochs[i] + tofs[i];
 
-    /* Planet states */
-    double states[6][6];
-    for (int i = 0; i < 6; i++)
-        jpl_lp_state(seq[i], epochs[i], states[i]);
+    /* Body states */
+    double states[8][6];
+    for (int i = 0; i < n_bodies; i++) {
+        if (seq[i] >= 0)
+            jpl_lp_state(seq[i], epochs[i], states[i]);
+        else if (custom_state)
+            memcpy(states[i], custom_state, 6 * sizeof(double));
+    }
 
-    /* Departure velocity */
+    /* Departure */
     double theta = 2.0 * M_PI * u;
     double phi = acos(2.0 * v - 1.0) - M_PI / 2.0;
     double v_sc[3];
@@ -463,48 +509,79 @@ double cassini2_eval(const double *x) {
     v_sc[1] = states[0][4] + vinf_mag * cos(phi) * sin(theta);
     v_sc[2] = states[0][5] + vinf_mag * sin(phi);
 
-    double total_dv = vinf_mag;
+    double total_dv = add_vinf_dep ? vinf_mag : 0.0;
 
-    for (int leg = 0; leg < 5; leg++) {
+    for (int leg = 0; leg < n_legs; leg++) {
         double tof_sec = tofs[leg] * 86400.0;
         double eta = etas[leg];
         double dt_coast = eta * tof_sec;
         double dt_lambert = (1.0 - eta) * tof_sec;
         if (dt_lambert < 1.0) return PENALTY;
 
-        /* Ballistic coast */
         double r_dsm[3], v_bal[3];
         if (propagate_kepler(states[leg], v_sc, dt_coast, MU_SUN, r_dsm, v_bal) != 0)
             return PENALTY;
-
-        /* Check finite */
         if (!isfinite(r_dsm[0]) || !isfinite(v_bal[0])) return PENALTY;
 
-        /* Lambert from DSM to next body */
         double v_ls[3], v_le[3];
         if (solve_lambert(r_dsm, states[leg+1], dt_lambert, MU_SUN, v_ls, v_le) != 0)
             return PENALTY;
         if (!isfinite(v_ls[0]) || !isfinite(v_le[0])) return PENALTY;
 
-        /* DSM cost */
-        double dv_dsm[3];
-        v3_sub(v_ls, v_bal, dv_dsm);
-        double dsm = v3_norm(dv_dsm);
+        double dv_vec[3];
+        v3_sub(v_ls, v_bal, dv_vec);
+        double dsm = v3_norm(dv_vec);
         if (!isfinite(dsm)) return PENALTY;
         total_dv += dsm;
 
-        /* Flyby or arrival */
-        if (leg < 4) {
+        if (leg < n_legs - 1) {
             int body = seq[leg + 1];
             double rp_km = rps[leg] * BODY_RADIUS[body];
             flyby_prop(v_le, states[leg+1]+3, BODY_MU[body], rp_km, betas[leg], v_sc);
             if (!isfinite(v_sc[0])) return PENALTY;
         } else {
+            /* Arrival: rendezvous dv */
             double vinf_arr[3];
-            v3_sub(v_le, states[5]+3, vinf_arr);
+            v3_sub(v_le, states[n_bodies-1]+3, vinf_arr);
             total_dv += v3_norm(vinf_arr);
         }
     }
 
     return isfinite(total_dv) ? total_dv : PENALTY;
+}
+
+/* ---- Cassini2 evaluate (MGA-1DSM, 22 variables) ---- */
+
+double cassini2_eval(const double *x) {
+    static const int seq[] = { EARTH, VENUS, VENUS, EARTH, JUPITER, SATURN };
+    return mga_1dsm_core(x, seq, 6, 1, NULL);
+}
+
+/* ---- Messenger evaluate (MGA-1DSM, 18 variables) ---- */
+
+double messenger_eval(const double *x) {
+    /* E-E-V-V-Me, 5 bodies, 4 legs, total_DV_rndv (add_vinf_dep=1) */
+    static const int seq[] = { EARTH, EARTH, VENUS, VENUS, MERCURY };
+    return mga_1dsm_core(x, seq, 5, 1, NULL);
+}
+
+/* ---- Rosetta evaluate (MGA-1DSM, 22 variables) ---- */
+
+double rosetta_eval(const double *x) {
+    /* E-E-Ma-E-E-67P, 6 bodies, 5 legs, rndv (add_vinf_dep=0)
+     * 67P is a custom Keplerian body */
+    static const int seq[] = { EARTH, EARTH, MARS, EARTH, EARTH, -1 };
+
+    /* Compute 67P state at arrival epoch */
+    double t0 = x[0];
+    double arr_mjd = t0 + x[4] + x[5] + x[6] + x[7] + x[8];
+
+    /* 67P orbital elements (from pagmo rosetta.cpp) */
+    /* Epoch: MJD 52504.23754 → MJD2000 = 52504.23754 - 51544.0 = 960.23754 */
+    double comet_state[6];
+    keplerian_state(3.50294972836275, 0.6319356, 7.12723,
+                    50.92302, 11.36788, 0.0,
+                    960.23754, arr_mjd, comet_state);
+
+    return mga_1dsm_core(x, seq, 6, 0, comet_state);
 }

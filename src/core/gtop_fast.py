@@ -1,6 +1,6 @@
 """Fast C-backed evaluation for GTOP benchmarks via ctypes.
 
-Provides drop-in replacements for cassini1_gtop_evaluate and cassini2_evaluate
+Provides drop-in replacements for all GTOP benchmark objectives
 that run ~100× faster by calling compiled C code.
 """
 
@@ -13,20 +13,22 @@ from numpy.ctypeslib import ndpointer
 _lib_path = os.path.join(os.path.dirname(__file__), 'gtop_eval.dylib')
 _lib = ctypes.CDLL(_lib_path)
 
-# Cassini1: double cassini1_eval(const double *x)  — 6 variables
-_lib.cassini1_eval.argtypes = [ndpointer(ctypes.c_double, flags='C_CONTIGUOUS')]
-_lib.cassini1_eval.restype = ctypes.c_double
+_dbl_arr = ndpointer(ctypes.c_double, flags='C_CONTIGUOUS')
 
-# Cassini2: double cassini2_eval(const double *x)  — 22 variables
-_lib.cassini2_eval.argtypes = [ndpointer(ctypes.c_double, flags='C_CONTIGUOUS')]
-_lib.cassini2_eval.restype = ctypes.c_double
+for name in ['cassini1_eval', 'cassini2_eval', 'messenger_eval', 'rosetta_eval']:
+    fn = getattr(_lib, name)
+    fn.argtypes = [_dbl_arr]
+    fn.restype = ctypes.c_double
 
 
 def cassini1_evaluate_fast(x):
-    """Evaluate Cassini1 GTOP objective (C implementation)."""
     return _lib.cassini1_eval(np.ascontiguousarray(x, dtype=np.float64))
 
-
 def cassini2_evaluate_fast(x):
-    """Evaluate Cassini2 GTOP objective (C implementation)."""
     return _lib.cassini2_eval(np.ascontiguousarray(x, dtype=np.float64))
+
+def messenger_evaluate_fast(x):
+    return _lib.messenger_eval(np.ascontiguousarray(x, dtype=np.float64))
+
+def rosetta_evaluate_fast(x):
+    return _lib.rosetta_eval(np.ascontiguousarray(x, dtype=np.float64))
