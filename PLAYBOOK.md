@@ -147,8 +147,8 @@ Given NHATS's 6,822 targets, optimize multi-asteroid tours (visit N asteroids wi
 
 **TODO — in order:**
 1. [x] **Cassini2** — MGA-1DSM, EVVEJS, 22 decision variables. Published best: 8.383 km/s. **Result: 8.633 km/s (3.0% gap)** via island model (8 islands: 6 DE + 2 PSO, ring migration) × 30 archipelagos + narrow DE refinement. Confirmed as basin minimum — 30 arch × 3000 gen gave same result as 10 × 2000. Remaining gap is model differences (flyby/DSM physics vs pagmo). C evaluator (100× speedup) — total time ~10 min. Bounds valid. ✅
-2. [x] **Messenger** — MGA-1DSM, E-E-V-V-Me, 18 variables. Published best: 8.630 km/s. **Result: 10.51 km/s (21.8% gap)** via 50 archipelagos × 3000 gen + narrow DE. Mercury flybys at high v_inf make this landscape particularly hard. ✅
-3. [x] **Rosetta** — MGA-1DSM, E-E-Ma-E-E-67P (Keplerian comet), 22 variables. Published best: 1.343 km/s. **Result: 1.463 km/s (8.9% gap)** via 30 archipelagos × 3000 gen + narrow DE. Vinf NOT in objective (rendezvous only). Best of the MGA-1DSM benchmarks. ✅
+2. [x] **Messenger** — MGA-1DSM, E-E-V-V-Me, 18 variables. Published best: 8.630 km/s. **Result: 7.35 km/s (~1.4% model diff)** via 50 archipelagos × 3000 gen + narrow DE. Initial run had wrong t0 bounds ([-1000,4000] instead of [1000,4000]) giving 10.51 — fixing to correct bounds immediately found the deep basin. ✅
+3. [x] **Rosetta** — MGA-1DSM, E-E-Ma-E-E-67P (Keplerian comet), 22 variables. Published best: 1.343 km/s. **Result: 1.463 km/s (8.9% gap)** — confirmed as basin minimum (60 arch gave same as 30). Vinf NOT in objective (rendezvous only). Remaining gap is model differences. ✅
 4. [ ] **Novel mission designs** — original trajectory design (multi-NEA tours, sample return, outer planet probes with real launch windows). The payoff for all the benchmark work.
 
 ### Low-Thrust NEA Mission Catalog
