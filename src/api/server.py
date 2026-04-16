@@ -113,6 +113,11 @@ def get_planet_orbit(body: str, epoch: str = '2026-01-01', points: int = 360):
     period_days = periods.get(body.lower(), 365)
     et_end = et_start + period_days * 86400
 
+    # Cap at SPICE DE440s coverage (~2150) to avoid SPKINSUFFDATA errors
+    max_et = utc_to_et('2149-01-01')
+    if et_end > max_et:
+        et_end = max_et
+
     states = get_states_over_range(body.lower(), et_start, et_end, points)
     return {
         'body': body, 'epoch': epoch, 'period_days': period_days,
