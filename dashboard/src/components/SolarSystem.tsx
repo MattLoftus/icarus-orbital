@@ -16,20 +16,20 @@ const PLANET_CONFIG: Record<string, {
   color: string; size: number; orbitColor: string;
   texture?: string; atmosphere?: string; ring?: boolean;
 }> = {
-  mercury: { color: '#b0a090', size: 0.02,  orbitColor: '#6a6058', texture: '/textures/mercury.jpg' },
-  venus:   { color: '#e8c870', size: 0.035, orbitColor: '#6a6048', texture: '/textures/venus.jpg' },
-  earth:   { color: '#4499dd', size: 0.035, orbitColor: '#3a5a80', texture: '/textures/earth_daymap.jpg', atmosphere: '#4488ff' },
-  mars:    { color: '#cc6644', size: 0.025, orbitColor: '#6a3a20', texture: '/textures/mars.jpg' },
-  jupiter: { color: '#d4a060', size: 0.08,  orbitColor: '#5a5038', texture: '/textures/jupiter.jpg' },
-  saturn:  { color: '#e8d090', size: 0.065, orbitColor: '#5a5038', texture: '/textures/saturn.jpg', ring: true },
-  uranus:  { color: '#88ccdd', size: 0.04,  orbitColor: '#2a4848', texture: '/textures/uranus.jpg' },
-  neptune: { color: '#4466cc', size: 0.04,  orbitColor: '#2a3058', texture: '/textures/neptune.jpg' },
-  pluto:   { color: '#c4a882', size: 0.015, orbitColor: '#5a4a38', texture: '/textures/pluto.jpg' },
-  ceres:   { color: '#a0a0a0', size: 0.015, orbitColor: '#555555', texture: '/textures/ceres.jpg' },
-  vesta:   { color: '#b8b0a0', size: 0.012, orbitColor: '#555555', texture: '/textures/vesta.jpg' },
-  eris:    { color: '#d0ccc4', size: 0.015, orbitColor: '#4a4840' },
-  haumea:  { color: '#c8c0b8', size: 0.013, orbitColor: '#4a4840' },
-  makemake:{ color: '#c4a088', size: 0.013, orbitColor: '#4a3828' },
+  mercury: { color: '#b0a090', size: 0.02,  orbitColor: '#9f9084', texture: '/textures/mercury.jpg' },
+  venus:   { color: '#e8c870', size: 0.035, orbitColor: '#9f906c', texture: '/textures/venus.jpg' },
+  earth:   { color: '#4499dd', size: 0.035, orbitColor: '#5888bf', texture: '/textures/earth_daymap.jpg', atmosphere: '#4488ff' },
+  mars:    { color: '#cc6644', size: 0.025, orbitColor: '#9f5830', texture: '/textures/mars.jpg' },
+  jupiter: { color: '#d4a060', size: 0.08,  orbitColor: '#887854', texture: '/textures/jupiter.jpg' },
+  saturn:  { color: '#e8d090', size: 0.065, orbitColor: '#887854', texture: '/textures/saturn.jpg', ring: true },
+  uranus:  { color: '#88ccdd', size: 0.04,  orbitColor: '#406c6c', texture: '/textures/uranus.jpg' },
+  neptune: { color: '#4466cc', size: 0.04,  orbitColor: '#404884', texture: '/textures/neptune.jpg' },
+  pluto:   { color: '#c4a882', size: 0.015, orbitColor: '#887054', texture: '/textures/pluto.jpg' },
+  ceres:   { color: '#a0a0a0', size: 0.015, orbitColor: '#808080', texture: '/textures/ceres.jpg' },
+  vesta:   { color: '#b8b0a0', size: 0.012, orbitColor: '#808080', texture: '/textures/vesta.jpg' },
+  eris:    { color: '#d0ccc4', size: 0.015, orbitColor: '#706c60' },
+  haumea:  { color: '#c8c0b8', size: 0.013, orbitColor: '#706c60' },
+  makemake:{ color: '#c4a088', size: 0.013, orbitColor: '#70543c' },
 };
 
 const CAMERA_PRESETS: Record<CameraPreset, { pos: [number, number, number]; target: [number, number, number] }> = {
@@ -124,7 +124,7 @@ function SaturnRing({ size }: { size: number }) {
 function OrbitPath({ positions, color }: { positions: [number, number, number][]; color: string }) {
   const points = useMemo(() => positions.map(p => new THREE.Vector3(...toScene(p))), [positions]);
   if (points.length < 2) return null;
-  return <Line points={points} color={color} lineWidth={1} transparent opacity={0.45} />;
+  return <Line points={points} color={color} lineWidth={1} transparent opacity={0.59} />;
 }
 
 function FlybyMarker({ position, body, isLaunch, isArrival }: {
@@ -200,11 +200,11 @@ function TransferArc({ positions, progress, events }: {
   return (
     <group>
       {/* Full arc — bright when not yet started, dim during playback */}
-      <Line points={allPoints} color="#22b8a0" lineWidth={progress <= 0 ? 1.5 : 1} transparent opacity={progress <= 0 ? 0.5 : 0.06} />
+      <Line points={allPoints} color="#22b8a0" lineWidth={progress <= 0 ? 1.5 : 1} transparent opacity={progress <= 0 ? 0.65 : 0.08} />
       {/* Traversed */}
-      {progress > 0 && traversed.length >= 2 && <Line points={traversed} color="#33ddc4" lineWidth={2} />}
+      {progress > 0 && traversed.length >= 2 && <Line points={traversed} color="#44eedd" lineWidth={2} />}
       {/* Remaining */}
-      {progress > 0 && remaining.length >= 2 && <Line points={remaining} color="#22b8a0" lineWidth={1} transparent opacity={0.2} />}
+      {progress > 0 && remaining.length >= 2 && <Line points={remaining} color="#22b8a0" lineWidth={1} transparent opacity={0.26} />}
 
       {/* Flyby markers (from reference missions) */}
       {flybyMarkers.map((m, idx) => (

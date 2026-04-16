@@ -78,6 +78,16 @@ BODIES = {
 # Format: {a_au, e, i_deg, om_deg, w_deg, ma_deg, epoch_jd}
 # Elements from JPL Small-Body Database, epoch JD 2460200.5 (2023-Sep-13)
 KEPLERIAN_BODIES = {
+    'uranus': {
+        'a_au': 19.189, 'e': 0.0473, 'i_deg': 0.773,
+        'om_deg': 74.02, 'w_deg': 96.93, 'ma_deg': 142.24,
+        'epoch_jd': 2460200.5, 'period_days': 30687,
+    },
+    'neptune': {
+        'a_au': 30.070, 'e': 0.0086, 'i_deg': 1.770,
+        'om_deg': 131.78, 'w_deg': 273.19, 'ma_deg': 259.88,
+        'epoch_jd': 2460200.5, 'period_days': 60190,
+    },
     'pluto': {
         'a_au': 39.482, 'e': 0.2488, 'i_deg': 17.16,
         'om_deg': 110.30, 'w_deg': 113.83, 'ma_deg': 38.65,
