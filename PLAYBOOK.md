@@ -149,22 +149,42 @@ Given NHATS's 6,822 targets, optimize multi-asteroid tours (visit N asteroids wi
 1. [x] **Cassini2** — MGA-1DSM, EVVEJS, 22 decision variables. Published best: 8.383 km/s. **Result: 8.633 km/s (3.0% gap)** via island model (8 islands: 6 DE + 2 PSO, ring migration) × 30 archipelagos + narrow DE refinement. Confirmed as basin minimum — 30 arch × 3000 gen gave same result as 10 × 2000. Remaining gap is model differences (flyby/DSM physics vs pagmo). C evaluator (100× speedup) — total time ~10 min. Bounds valid. ✅
 2. [x] **Messenger** — MGA-1DSM, E-E-V-V-Me, 18 variables. Published best: 8.630 km/s. **Result: 7.35 km/s (~1.4% model diff)** via 50 archipelagos × 3000 gen + narrow DE. Initial run had wrong t0 bounds ([-1000,4000] instead of [1000,4000]) giving 10.51 — fixing to correct bounds immediately found the deep basin. ✅
 3. [x] **Rosetta** — MGA-1DSM, E-E-Ma-E-E-67P (Keplerian comet), 22 variables. Published best: 1.343 km/s. **Result: 1.349 km/s (0.4% gap)** — seeding near published TOFs found the correct basin. Unseededd search converges to a different basin at 1.46 (8.9% gap), confirming the landscape is extremely narrow. ✅
-4. [ ] **Novel mission designs** — original trajectory design (multi-NEA tours, sample return, outer planet probes with real launch windows). The payoff for all the benchmark work.
+### Novel Mission Designs
 
-### Low-Thrust NEA Mission Catalog
-Most NHATS data assumes impulsive (chemical) propulsion. Computing optimal low-thrust (ion/solar sail) trajectories to top NHATS targets would produce a novel dataset.
+The payoff for all the benchmark work — use the validated optimizer + 3D visualization to design original trajectories with real launch windows.
 
-- Sims-Flanagan method via pykep for preliminary design
-- Could add a "propulsion type" toggle to the mission designer (chemical vs. ion vs. solar sail)
-- Computationally heavier — may need background job queue
+1. [ ] **Modern Grand Tour (2028–2035)** — Find the best 3–4 planet outer solar system tour available in near-future launch windows. The Voyager-era alignment (all 4 outer planets) won't repeat for 175 years, but partial tours (e.g., J-S-U or J-S-N) may be feasible. Use SPICE ephemeris for real planet positions, MGA-1DSM optimizer with automated sequence discovery. Compare against a direct Jupiter-only mission as baseline. Deliverable: optimized trajectory + 3D visualization as a new "designed mission" in the sidebar.
 
-### Gravity Assist Sequence Discovery
-Given a target NEA, automatically discover the best gravity assist sequence (which planets, in what order). Currently done by human intuition + brute force enumeration.
+2. [ ] **NEA Sample Return** — Design an Earth→asteroid→Earth round-trip trajectory for the most accessible NHATS target. Requires a new objective function: minimize outbound + return delta-v with a stay time at the asteroid. The outbound leg uses gravity assists; the return leg is a direct transfer timed for Earth reentry. Real mission type (OSIRIS-REx cost $1B; a cheaper trajectory is valuable). Deliverable: ranked list of top 5 round-trip targets with trajectories.
 
-- Natural extension of the mission designer — "auto-optimize flyby sequence" button
-- Enumerate candidate sequences (constrained by synodic periods, v-infinity matching)
-- Run MGA-1DSM optimization on each viable sequence
-- Present top N sequences ranked by total delta-v
+3. [ ] **Fast Jupiter/Europa** — Optimal Earth-to-Jupiter trajectory for a Europa Clipper-class mission. Compare VEGA (Venus-Earth-GA), VVEJGA (double Venus), direct, and let the optimizer discover novel sequences. Constrain arrival v_inf for Jupiter orbit insertion. Deliverable: comparison table of sequences with delta-v, TOF, and C3 requirements.
+
+4. [ ] **Interstellar Precursor** — Maximize heliocentric escape velocity using planetary gravity assists. Goal: reach 200+ AU (solar gravity lens focus) as fast as possible. Different objective function from all benchmarks (max velocity, not min delta-v). Use Jupiter and optionally Saturn for maximum slingshot. Deliverable: Pareto front of escape velocity vs launch C3.
+
+5. [ ] **Multi-NEA Tour** — Visit 3–5 near-Earth asteroids in a single mission, minimizing total delta-v. This is a traveling salesman problem in 4D (position + time). Filter NHATS for clusters of low-delta-v targets with compatible orbital elements, then optimize the visit sequence and transfer dates. Deliverable: top 3 multi-target tours with animated 3D visualization.
+
+### Propulsion Expansion: Electric + Solar Sail
+
+The current system is built for **chemical (impulsive) propulsion** — every maneuver is an instantaneous velocity change. Expanding to other propulsion types requires new physics models, not just parameter changes.
+
+**Electric Propulsion (Ion/Hall Thruster)**
+- [ ] **Sims-Flanagan upgrade** — The existing `low_thrust.py` implements basic Sims-Flanagan, but needs: proper thrust constraints (max thrust as function of solar distance for solar-electric), mass depletion tracking, and integration with the MGA framework (low-thrust legs between gravity assists).
+- [ ] **Collocation method** — For higher-fidelity trajectories, implement a direct collocation transcription (Hermite-Simpson or Gauss-Lobatto) that converts the continuous optimal control problem into a large NLP. More accurate than Sims-Flanagan but requires an NLP solver (IPOPT via pyomo, or scipy SLSQP).
+- [ ] **Hybrid high-thrust/low-thrust** — Real missions often use chemical burns for orbit insertion and electric propulsion for cruise. Need a framework that chains impulsive and continuous-thrust legs.
+- [ ] **Q-law for planetocentric spirals** — For low-thrust orbit raising/lowering around a planet (e.g., GTO to escape), implement Petropoulos's Q-law feedback controller. This handles the spiral phase that Lambert can't.
+- Parameters: thrust (mN), I_sp (s), power (kW), mass budget (dry + propellant), thrust profile (constant vs solar-distance-dependent).
+
+**Solar Sail**
+- [ ] **Ideal sail model** — Thrust = (2PA/c) * cos²(α) * n̂, where P is solar pressure, A is sail area, α is cone angle, n̂ is sail normal. Thrust magnitude scales as 1/r² (inverse square of Sun distance). Direction is always away from Sun (can't thrust toward Sun).
+- [ ] **Trajectory propagation** — Integrate equations of motion with continuous solar radiation pressure. No impulsive approximation possible — every trajectory point depends on sail orientation history.
+- [ ] **Optimal control** — The control variable is sail orientation (cone + clock angles) at each point in time. This is a continuous optimal control problem, solvable by direct collocation or indirect methods (Pontryagin's minimum principle).
+- [ ] **Characteristic acceleration** — The key mission design parameter: a_c = 2PA/(mc) at 1 AU. Typical values: 0.1–1.0 mm/s². Higher a_c = larger/lighter sail = more expensive to build.
+- Key difference from electric: no propellant mass, unlimited mission duration, but can only push away from Sun (can't do arbitrary thrust direction).
+
+**Shared Infrastructure Needed**
+- [ ] **Numerical integrator** — Both electric and solar sail need a robust ODE integrator (RK4/5 or DOP853) for continuous-thrust trajectory propagation. The current codebase only has Kepler propagation (analytical, 2-body).
+- [ ] **Propulsion model abstraction** — A common interface for thrust(t, r, v, m) → acceleration that different propulsion types implement. This lets the trajectory propagator and optimizer work with any propulsion model.
+- [ ] **UI propulsion selector** — Add a propulsion type dropdown (Chemical / Electric / Solar Sail) to the sidebar. Each type shows relevant parameters (I_sp + thrust for electric, characteristic acceleration for sail). The trajectory computation switches models accordingly.
 
 ---
 

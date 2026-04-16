@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/store';
 import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop, getGTOPBenchmark } from '../lib/api';
 import type { PlanetState } from '../lib/api';
@@ -519,7 +519,7 @@ export function Sidebar() {
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                    {gtopLoading === m.id ? 'Optimizing...' : m.label}
+                    {gtopLoading === m.id ? <AnimatedDots text="Optimizing" /> : m.label}
                   </span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
                     Best: {m.pub} km/s
@@ -546,4 +546,13 @@ export function Sidebar() {
       )}
     </div>
   );
+}
+
+function AnimatedDots({ text }: { text: string }) {
+  const [dots, setDots] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setDots(d => (d + 1) % 4), 400);
+    return () => clearInterval(id);
+  }, []);
+  return <>{text}{'.'.repeat(dots)}</>
 }
