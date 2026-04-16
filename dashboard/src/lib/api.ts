@@ -152,7 +152,18 @@ export async function getGTOPBenchmarks(): Promise<GTOPBenchmark[]> {
 }
 
 export async function getGTOPBenchmark(name: string): Promise<ReferenceMission & { stats: any }> {
-  return fetchJSON(`${API_BASE}/gtop-benchmarks/${encodeURIComponent(name)}`);
+  // GTOP benchmarks run the optimizer on-demand — can take 2-3 minutes
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout
+  try {
+    const resp = await fetch(`${API_BASE}/gtop-benchmarks/${encodeURIComponent(name)}`, {
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+    return resp.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // --- NEA Transfers ---

@@ -368,13 +368,17 @@ def list_gtop_benchmarks_endpoint():
 
 
 @app.get("/api/gtop-benchmarks/{name}")
-def get_gtop_benchmark_endpoint(name: str):
+async def get_gtop_benchmark_endpoint(name: str):
     """Compute and return a GTOP benchmark trajectory for visualization.
 
-    This runs the optimizer on-demand (takes ~30-60 seconds per benchmark).
+    Runs the optimizer in a thread pool to avoid blocking the server.
+    Takes ~30-120 seconds per benchmark.
     """
+    import asyncio
     from src.data.gtop_missions import get_gtop_benchmark
-    result = get_gtop_benchmark(name)
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, get_gtop_benchmark, name)
     if not result:
         raise HTTPException(404, f"Unknown benchmark: {name}")
     return result
