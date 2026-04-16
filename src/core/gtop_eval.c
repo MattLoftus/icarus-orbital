@@ -26,24 +26,30 @@
 #define MARS    3
 #define JUPITER 4
 #define SATURN  5
+#define URANUS  6
+#define NEPTUNE 7
+#define N_PLANETS 8
 
 /* Body mu (km^3/s^2) */
 static const double BODY_MU[] = {
-    22032.0, 324859.0, 398600.4418, 42828.0, 126686534.0, 37931187.0
+    22032.0, 324859.0, 398600.4418, 42828.0, 126686534.0, 37931187.0,
+    5793939.0, 6836529.0
 };
 
 /* Body radius (km) */
 static const double BODY_RADIUS[] = {
-    2440.0, 6052.0, 6378.0, 3397.0, 71492.0, 60330.0
+    2440.0, 6052.0, 6378.0, 3397.0, 71492.0, 60330.0,
+    25559.0, 24766.0
 };
 
 /* Safe radius factor */
 static const double BODY_SAFE[] = {
-    1.1, 1.1, 1.1, 1.1, 9.0, 1.1
+    1.1, 1.1, 1.1, 1.1, 9.0, 1.1,
+    1.1, 1.1
 };
 
 /* JPL LP ephemeris coefficients: [a0, adot, e0, edot, I0, Idot, L0, Ldot, w0, wdot, O0, Odot] */
-static const double EPHEM[6][12] = {
+static const double EPHEM[8][12] = {
     /* Mercury */ { 0.38709927, 0.00000037, 0.20563593, 0.00001906, 7.00497902, -0.00594749,
                     252.25032350, 149472.67411175, 77.45779628, 0.16047689, 48.33076593, -0.12534081 },
     /* Venus */   { 0.72333566, 0.00000390, 0.00677672, -0.00004107, 3.39467605, -0.00078890,
@@ -56,6 +62,10 @@ static const double EPHEM[6][12] = {
                     34.39644051, 3034.74612775, 14.72847983, 0.21252668, 100.47390909, 0.20469106 },
     /* Saturn */  { 9.53667594, -0.00125060, 0.05386179, -0.00050991, 2.48599187, 0.00193609,
                     49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794 },
+    /* Uranus */  { 19.18916464, -0.00196176, 0.04725744, -0.00004397, 0.77263783, -0.00242939,
+                    313.23810451, 428.48202785, 170.95427630, 0.40805281, 74.01692503, 0.04240589 },
+    /* Neptune */ { 30.06992276, 0.00026291, 0.00859048, 0.00005105, 1.77004347, 0.00035372,
+                    -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664 },
 };
 
 /* Cassini1 EVVEJS sequence */
@@ -584,4 +594,19 @@ double rosetta_eval(const double *x) {
                     960.23754, arr_mjd, comet_state);
 
     return mga_1dsm_core(x, seq, 6, 0, comet_state);
+}
+
+/* ---- Generic MGA-1DSM evaluate (arbitrary sequence) ---- */
+
+/*
+ * generic_mga_1dsm_eval: evaluate an MGA-1DSM trajectory for any sequence.
+ *
+ * Parameters:
+ *   x:        decision variables [t0, Vinf, u, v, T1..Tn, eta1..etan, rp1..rp(n-1), beta1..beta(n-1)]
+ *   seq:      body indices (0=Mercury..7=Neptune), length n_bodies
+ *   n_bodies: number of bodies in sequence
+ *   add_vinf_dep: 1 to add departure v_inf to objective, 0 otherwise
+ */
+double generic_mga_1dsm_eval(const double *x, const int *seq, int n_bodies, int add_vinf_dep) {
+    return mga_1dsm_core(x, seq, n_bodies, add_vinf_dep, NULL);
 }
