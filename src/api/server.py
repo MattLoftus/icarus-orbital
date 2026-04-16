@@ -352,6 +352,26 @@ def get_ref_mission(name: str):
     return mission
 
 
+@app.get("/api/gtop-benchmarks")
+def list_gtop_benchmarks_endpoint():
+    """List available GTOP benchmark missions."""
+    from src.data.gtop_missions import list_gtop_benchmarks
+    return list_gtop_benchmarks()
+
+
+@app.get("/api/gtop-benchmarks/{name}")
+def get_gtop_benchmark_endpoint(name: str):
+    """Compute and return a GTOP benchmark trajectory for visualization.
+
+    This runs the optimizer on-demand (takes ~30-60 seconds per benchmark).
+    """
+    from src.data.gtop_missions import get_gtop_benchmark
+    result = get_gtop_benchmark(name)
+    if not result:
+        raise HTTPException(404, f"Unknown benchmark: {name}")
+    return result
+
+
 @app.get("/api/targets")
 def list_targets(max_dv: int = Query(default=6, ge=4, le=12),
                  limit: int = Query(default=50, ge=1, le=500)):

@@ -138,6 +138,23 @@ export async function getReferenceMission(name: string): Promise<ReferenceMissio
   return fetchJSON(`${API_BASE}/reference-missions/${encodeURIComponent(name)}`);
 }
 
+// --- GTOP Benchmarks ---
+
+export interface GTOPBenchmark {
+  id: string;
+  name: string;
+  sequence: string;
+  published_dv: number;
+}
+
+export async function getGTOPBenchmarks(): Promise<GTOPBenchmark[]> {
+  return fetchJSON(`${API_BASE}/gtop-benchmarks`);
+}
+
+export async function getGTOPBenchmark(name: string): Promise<ReferenceMission & { stats: any }> {
+  return fetchJSON(`${API_BASE}/gtop-benchmarks/${encodeURIComponent(name)}`);
+}
+
 // --- NEA Transfers ---
 
 export async function getNeaTransfer(

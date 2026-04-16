@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/store';
-import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop } from '../lib/api';
+import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop, getGTOPBenchmark } from '../lib/api';
 import type { PlanetState } from '../lib/api';
 import { suggestWindow } from '../lib/windows';
 import type { TransferWindow } from '../lib/windows';
@@ -29,8 +29,10 @@ const REF_MISSIONS = [
 export function Sidebar() {
   const s = useStore();
   const [refLoading, setRefLoading] = useState<string | null>(null);
+  const [gtopLoading, setGtopLoading] = useState<string | null>(null);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
   const [refExpanded, setRefExpanded] = useState(false);
+  const [gtopExpanded, setGtopExpanded] = useState(false);
 
   const applyWindow = (from: string, to: string) => {
     const state = useStore.getState();
@@ -427,6 +429,102 @@ export function Sidebar() {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
                   {refLoading === m.id ? 'Loading...' : m.label}
                 </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
+                  {m.sub}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* GTOP Benchmarks — collapsible */}
+      <div className="panel">
+        <button
+          onClick={() => setGtopExpanded(!gtopExpanded)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            marginBottom: gtopExpanded ? '10px' : 0,
+          }}
+        >
+          <div className="panel-header-dot" style={{ background: 'var(--green)' }} />
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
+          }}>
+            GTOP Benchmarks
+          </span>
+          <span style={{
+            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
+            transform: gtopExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+          }}>▶</span>
+        </button>
+        {gtopExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
+              Optimized trajectories computed on-demand (~30-60s)
+            </div>
+            {[
+              { id: 'cassini2', label: 'Cassini2', sub: 'E→V→V→E→J→S', pub: '8.383' },
+              { id: 'messenger', label: 'Messenger', sub: 'E→E→V→V→Me', pub: '8.630' },
+              { id: 'rosetta', label: 'Rosetta', sub: 'E→E→Ma→E→E→67P', pub: '1.343' },
+            ].map(m => (
+              <button
+                key={m.id}
+                disabled={gtopLoading !== null}
+                onClick={async () => {
+                  setGtopLoading(m.id);
+                  try {
+                    const mission = await getGTOPBenchmark(m.id);
+                    const launchDate = mission.events[0]?.date || '';
+                    const approx = allPlanetPositionsAtDate(launchDate);
+                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
+                      name, position, velocity: [0, 0, 0] as [number, number, number],
+                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
+                      speed_kms: 0,
+                    }));
+                    useStore.setState({
+                      planets: approxPlanets,
+                      transfer: {
+                        departure_body: mission.sequence[0],
+                        arrival_body: mission.sequence[mission.sequence.length - 1],
+                        departure_utc: launchDate,
+                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
+                        tof_days: 0,
+                        dv_departure: 0, dv_arrival: 0, dv_total: mission.stats?.total_dv_km_s || 0,
+                        c3_launch: 0, v_inf_arrival: 0,
+                        trajectory_positions: mission.trajectory_positions,
+                      },
+                      referenceMission: mission,
+                      viewMode: 'solar-system',
+                      animationProgress: 0,
+                      animationPlaying: false,
+                      epoch: launchDate,
+                    });
+                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
+                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
+                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
+                    }
+                  } catch (e) { s.setError(String(e)); }
+                  finally { setGtopLoading(null); }
+                }}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
+                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
+                  opacity: gtopLoading && gtopLoading !== m.id ? 0.5 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
+                    {gtopLoading === m.id ? 'Optimizing...' : m.label}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
+                    Best: {m.pub} km/s
+                  </span>
+                </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
                   {m.sub}
                 </span>
