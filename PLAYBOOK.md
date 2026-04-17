@@ -151,9 +151,9 @@ Given NHATS's 6,822 targets, optimize multi-asteroid tours (visit N asteroids wi
 3. [x] **Rosetta** — MGA-1DSM, E-E-Ma-E-E-67P (Keplerian comet), 22 variables. Published best: 1.343 km/s. **Result: 1.349 km/s (0.4% gap)** — seeding near published TOFs found the correct basin. Unseededd search converges to a different basin at 1.46 (8.9% gap), confirming the landscape is extremely narrow. ✅
 ### Novel Mission Designs
 
-The payoff for all the benchmark work — use the validated optimizer + 3D visualization to design original trajectories with real launch windows.
+The payoff for all the benchmark work — use the validated optimizer + 3D visualization to design original trajectories with real launch windows. Full results and analysis: **[`NOVEL_MISSIONS.md`](NOVEL_MISSIONS.md)**.
 
-1. [ ] **Modern Grand Tour (2028–2035)** — Find the best 3–4 planet outer solar system tour available in near-future launch windows. The Voyager-era alignment (all 4 outer planets) won't repeat for 175 years, but partial tours (e.g., J-S-U or J-S-N) may be feasible. Use SPICE ephemeris for real planet positions, MGA-1DSM optimizer with automated sequence discovery. Compare against a direct Jupiter-only mission as baseline. Deliverable: optimized trajectory + 3D visualization as a new "designed mission" in the sidebar.
+1. [x] **Modern Grand Tour (2028–2035)** — Find the best 3–4 planet outer solar system tour available in near-future launch windows. The Voyager-era alignment (all 4 outer planets) won't repeat for 175 years, but partial tours (e.g., J-S-U or J-S-N) may be feasible. Use SPICE ephemeris for real planet positions, MGA-1DSM optimizer with automated sequence discovery. Compare against a direct Jupiter-only mission as baseline. Deliverable: optimized trajectory + 3D visualization as a new "designed mission" in the sidebar.
 
 2. [ ] **NEA Sample Return** — Design an Earth→asteroid→Earth round-trip trajectory for the most accessible NHATS target. Requires a new objective function: minimize outbound + return delta-v with a stay time at the asteroid. The outbound leg uses gravity assists; the return leg is a direct transfer timed for Earth reentry. Real mission type (OSIRIS-REx cost $1B; a cheaper trajectory is valuable). Deliverable: ranked list of top 5 round-trip targets with trajectories.
 
