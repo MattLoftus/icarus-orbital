@@ -105,8 +105,8 @@ def _propagate_mga_1dsm(x: np.ndarray, sequence: List[str], n_legs: int,
         dt_coast = eta * tof_sec
         dt_lambert = (1.0 - eta) * tof_sec
 
-        # Phase 1: Ballistic coast
-        n_coast_pts = max(5, int(30 * eta))
+        # Phase 1: Ballistic coast — scale points by duration (~1 point per 10 days)
+        n_coast_pts = max(5, int(dt_coast / 86400 / 10))
         dt_step = dt_coast / max(n_coast_pts - 1, 1)
         r_cur, v_cur = states[leg][:3].copy(), v_sc.copy()
         for p in range(n_coast_pts):
@@ -128,8 +128,8 @@ def _propagate_mga_1dsm(x: np.ndarray, sequence: List[str], n_legs: int,
         total_dsm_dv += dsm_dv
         dsm_dvs.append(dsm_dv)
 
-        # Propagate Lambert arc for visualization
-        n_lambert_pts = max(5, int(30 * (1 - eta)))
+        # Propagate Lambert arc for visualization — ~1 point per 10 days
+        n_lambert_pts = max(5, int(dt_lambert / 86400 / 10))
         dt_step_l = dt_lambert / max(n_lambert_pts - 1, 1)
         r_cur, v_cur = r_dsm.copy(), v_ls.copy()
         for p in range(n_lambert_pts):
