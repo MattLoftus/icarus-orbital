@@ -166,6 +166,16 @@ export async function getGTOPBenchmark(name: string): Promise<ReferenceMission &
   }
 }
 
+// --- Designed Missions ---
+
+export async function getDesignedMissions(): Promise<{ id: string; name: string; sequence: string }[]> {
+  return fetchJSON(`${API_BASE}/designed-missions`);
+}
+
+export async function getDesignedMission(id: string): Promise<ReferenceMission & { stats: any }> {
+  return fetchJSON(`${API_BASE}/designed-missions/${encodeURIComponent(id)}`);
+}
+
 // --- NEA Transfers ---
 
 export async function getNeaTransfer(

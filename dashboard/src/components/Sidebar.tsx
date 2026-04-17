@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/store';
-import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop, getGTOPBenchmark } from '../lib/api';
+import { getTransfer, getPlanets, getOrbit, getPorkchop, getTargets, getReferenceMission, getNeaPorkchop, getGTOPBenchmark, getDesignedMission } from '../lib/api';
 import type { PlanetState } from '../lib/api';
 import { suggestWindow } from '../lib/windows';
 import type { TransferWindow } from '../lib/windows';
@@ -30,9 +30,11 @@ export function Sidebar() {
   const s = useStore();
   const [refLoading, setRefLoading] = useState<string | null>(null);
   const [gtopLoading, setGtopLoading] = useState<string | null>(null);
+  const [designedLoading, setDesignedLoading] = useState<string | null>(null);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
   const [refExpanded, setRefExpanded] = useState(false);
   const [gtopExpanded, setGtopExpanded] = useState(false);
+  const [designedExpanded, setDesignedExpanded] = useState(false);
 
   const applyWindow = (from: string, to: string) => {
     const state = useStore.getState();
@@ -523,6 +525,102 @@ export function Sidebar() {
                   </span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
                     Best: {m.pub} km/s
+                  </span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
+                  {m.sub}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Designed Missions — collapsible */}
+      <div className="panel">
+        <button
+          onClick={() => setDesignedExpanded(!designedExpanded)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            marginBottom: designedExpanded ? '10px' : 0,
+          }}
+        >
+          <div className="panel-header-dot" style={{ background: '#8b5cf6' }} />
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
+          }}>
+            Designed Missions
+          </span>
+          <span style={{
+            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
+            transform: designedExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+          }}>▶</span>
+        </button>
+        {designedExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
+              Novel trajectories optimized by I.C.A.R.U.S.
+            </div>
+            {[
+              { id: 'grand-tour-eejs', label: 'Grand Tour: EEJS', sub: 'E→E→J→S', detail: '8.80 km/s · 13.4yr' },
+              { id: 'grand-tour-vejs', label: 'Grand Tour: VEJS', sub: 'E→V→E→J→S', detail: '9.04 km/s · 12.2yr' },
+              { id: 'fast-jupiter-vej', label: 'Fast Jupiter', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr' },
+            ].map(m => (
+              <button
+                key={m.id}
+                disabled={designedLoading !== null}
+                onClick={async () => {
+                  setDesignedLoading(m.id);
+                  try {
+                    const mission = await getDesignedMission(m.id);
+                    const launchDate = mission.events[0]?.date || '';
+                    const approx = allPlanetPositionsAtDate(launchDate);
+                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
+                      name, position, velocity: [0, 0, 0] as [number, number, number],
+                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
+                      speed_kms: 0,
+                    }));
+                    useStore.setState({
+                      planets: approxPlanets,
+                      transfer: {
+                        departure_body: mission.sequence[0],
+                        arrival_body: mission.sequence[mission.sequence.length - 1],
+                        departure_utc: launchDate,
+                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
+                        tof_days: 0,
+                        dv_departure: 0, dv_arrival: 0, dv_total: mission.stats?.total_dv_km_s || 0,
+                        c3_launch: 0, v_inf_arrival: 0,
+                        trajectory_positions: mission.trajectory_positions,
+                      },
+                      referenceMission: mission,
+                      viewMode: 'solar-system',
+                      animationProgress: 0,
+                      animationPlaying: false,
+                      epoch: launchDate,
+                    });
+                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
+                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
+                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
+                    }
+                  } catch (e) { s.setError(String(e)); }
+                  finally { setDesignedLoading(null); }
+                }}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
+                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
+                  opacity: designedLoading && designedLoading !== m.id ? 0.5 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
+                    {designedLoading === m.id ? <AnimatedDots text="Loading" /> : m.label}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
+                    {m.detail}
                   </span>
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>

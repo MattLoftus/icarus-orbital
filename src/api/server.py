@@ -384,6 +384,23 @@ async def get_gtop_benchmark_endpoint(name: str):
     return result
 
 
+@app.get("/api/designed-missions")
+def list_designed_missions_endpoint():
+    """List available designed missions."""
+    from src.data.designed_missions import list_designed_missions
+    return list_designed_missions()
+
+
+@app.get("/api/designed-missions/{mission_id}")
+def get_designed_mission_endpoint(mission_id: str):
+    """Get a designed mission trajectory (instant — pre-computed x*)."""
+    from src.data.designed_missions import get_designed_mission
+    result = get_designed_mission(mission_id)
+    if not result:
+        raise HTTPException(404, f"Unknown mission: {mission_id}")
+    return result
+
+
 @app.get("/api/targets")
 def list_targets(max_dv: int = Query(default=6, ge=4, le=12),
                  limit: int = Query(default=50, ge=1, le=500)):
