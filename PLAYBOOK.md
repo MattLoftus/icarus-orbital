@@ -157,7 +157,7 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 
 2. [ ] **NEA Sample Return** — Design an Earth→asteroid→Earth round-trip trajectory for the most accessible NHATS target. Requires a new objective function: minimize outbound + return delta-v with a stay time at the asteroid. The outbound leg uses gravity assists; the return leg is a direct transfer timed for Earth reentry. Real mission type (OSIRIS-REx cost $1B; a cheaper trajectory is valuable). Deliverable: ranked list of top 5 round-trip targets with trajectories.
 
-3. [ ] **Fast Jupiter/Europa** — Optimal Earth-to-Jupiter trajectory for a Europa Clipper-class mission. Compare VEGA (Venus-Earth-GA), VVEJGA (double Venus), direct, and let the optimizer discover novel sequences. Constrain arrival v_inf for Jupiter orbit insertion. Deliverable: comparison table of sequences with delta-v, TOF, and C3 requirements.
+3. [x] **Fast Jupiter/Europa** — 7-sequence comparison. Winner: E→E→Ma→J at 10.07 km/s (Mars assists competitive with Venus). Fastest practical: E→V→E→J at 10.18 km/s / 4.6yr. Direct E→J costs 14.36 km/s (C3=75.5, impractical). See `NOVEL_MISSIONS.md` §2.
 
 4. [ ] **Interstellar Precursor** — Maximize heliocentric escape velocity using planetary gravity assists. Goal: reach 200+ AU (solar gravity lens focus) as fast as possible. Different objective function from all benchmarks (max velocity, not min delta-v). Use Jupiter and optionally Saturn for maximum slingshot. Deliverable: Pareto front of escape velocity vs launch C3.
 

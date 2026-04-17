@@ -566,7 +566,9 @@ export function Sidebar() {
             {[
               { id: 'grand-tour-eejs', label: 'Grand Tour: EEJS', sub: 'E→E→J→S', detail: '8.80 km/s · 13.4yr' },
               { id: 'grand-tour-vejs', label: 'Grand Tour: VEJS', sub: 'E→V→E→J→S', detail: '9.04 km/s · 12.2yr' },
-              { id: 'fast-jupiter-vej', label: 'Fast Jupiter', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr' },
+              { id: 'fast-jupiter-vej', label: 'Jupiter: VEJ', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr' },
+              { id: 'jupiter-emaj', label: 'Jupiter: EMaJ', sub: 'E→E→Ma→J', detail: '10.07 km/s · 6.0yr' },
+              { id: 'jupiter-maej', label: 'Jupiter: MaEJ', sub: 'E→Ma→E→J', detail: '10.66 km/s · 6.5yr' },
             ].map(m => (
               <button
                 key={m.id}

@@ -53,6 +53,34 @@ _DESIGNED_MISSIONS = {
         'n_legs': 3,
         'add_vinf_dep': True,
     },
+    'jupiter-emaj': {
+        'name': 'Jupiter via E→Ma→J',
+        'description': 'Earth-Mars-Jupiter transfer departing 2034. Mars gravity assist '
+                       'redirects toward Jupiter at lower cost than Venus. '
+                       'Best overall: 10.07 km/s, C3=1.1 km²/s².',
+        'sequence': ['earth', 'earth', 'mars', 'jupiter'],
+        'x': [12604.97302, 1.02589, 1.0, 0.501917,
+              474.121853, 549.054782, 1176.807684,
+              0.462113, 0.502443, 0.099878,
+              1.100008, 1.100014,
+              1.357558, 1.465798],
+        'n_legs': 3,
+        'add_vinf_dep': True,
+    },
+    'jupiter-maej': {
+        'name': 'Jupiter via Ma→E→J',
+        'description': 'Mars-Earth-Jupiter transfer departing 2033. Flies out to Mars first, '
+                       'returns to Earth for a gravity assist, then proceeds to Jupiter. '
+                       '10.66 km/s, C3=1.0 km²/s².',
+        'sequence': ['earth', 'mars', 'earth', 'jupiter'],
+        'x': [12228.614228, 1.000724, 0.999998, 0.732295,
+              405.421633, 787.262203, 1187.102962,
+              0.027862, 0.556247, 0.063739,
+              1.958891, 1.1,
+              -0.885768, 1.529267],
+        'n_legs': 3,
+        'add_vinf_dep': True,
+    },
 }
 
 
