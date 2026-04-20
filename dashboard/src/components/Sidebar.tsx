@@ -681,6 +681,9 @@ export function Sidebar() {
               { id: 'lt-earth-vesta', label: 'Low-Thrust: Earth→Vesta', sub: 'Ion, Dawn-like', detail: '350 kg Xe · 1300d · 9.18 km/s' },
               { id: 'sail-interstellar', label: 'Solar Sail: Interstellar', sub: 'Zero propellant', detail: '15.5 km/s · 3.3 AU/yr' },
               { id: 'hybrid-mars-capture', label: 'Hybrid: Mars Capture', sub: 'Ion + Chemical orbit insertion', detail: 'Ion cruise + chem capture' },
+              { id: 'hybrid-saturn', label: 'Hybrid: Saturn', sub: 'Cassini-class hybrid', detail: '7.7yr · 1200 kg Xe' },
+              { id: 'hybrid-pluto', label: 'Hybrid: Pluto Orbiter', sub: 'Faster NH, with orbit', detail: '12yr · 1500 kg Xe' },
+              { id: 'lt-sr-bennu', label: 'Low-Thrust Sample Return: Bennu', sub: 'Ion OSIRIS-REx', detail: '3.8yr · 400 kg Xe (vs 93% chem)' },
             ].map(m => (
               <button
                 key={m.id}

@@ -110,6 +110,28 @@ _SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
     },
 }
 
+# Low-thrust sample return missions (ion alternative to chemical sample returns)
+_LT_SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
+    'lt-sr-bennu': {
+        'name': 'Low-Thrust Sample Return: Bennu',
+        'description': 'Ion propulsion alternative to OSIRIS-REx. Earth → Bennu → Earth round-trip using '
+                       '~400 kg of xenon (27% of 1500 kg launch mass). A chemical mission at the same 11.54 '
+                       'km/s would need ~93% propellant. Ion extends mission to 3.8 years but enables a '
+                       'much heavier scientific payload relative to launch mass.',
+        'designation': 'Bennu',
+        'dep_date': '2030-01-01',
+        'outbound_days': 600,
+        'stay_days': 180,
+        'return_days': 600,
+        'thrust_n': 0.2,
+        'isp': 3000.0,
+        'm0': 1500.0,
+        'm_dry_end_outbound': 1300.0,
+        'm_dry_end_return': 1100.0,
+    },
+}
+
+
 # Solar sail missions (no propellant, continuous radiation-pressure thrust)
 _SOLAR_SAIL_MISSIONS: Dict[str, Dict] = {
     'sail-interstellar': {
@@ -161,6 +183,30 @@ def get_designed_mission(mission_id: str) -> Dict:
     from src.core.low_thrust_missions import LOW_THRUST_MISSIONS, get_low_thrust_mission
     if mission_id in LOW_THRUST_MISSIONS:
         return get_low_thrust_mission(mission_id)
+
+    # Low-thrust sample return missions
+    if mission_id in _LT_SAMPLE_RETURN_MISSIONS:
+        from src.core.lt_sample_return import propagate_lt_sample_return
+        from src.data.sbdb import fetch_asteroid_elements
+        spec = _LT_SAMPLE_RETURN_MISSIONS[mission_id]
+        elements = fetch_asteroid_elements(spec['designation'])
+        if not elements:
+            return None
+        result = propagate_lt_sample_return(
+            elements,
+            dep_date=spec['dep_date'],
+            outbound_days=spec['outbound_days'],
+            stay_days=spec['stay_days'],
+            return_days=spec['return_days'],
+            thrust_n=spec['thrust_n'],
+            isp=spec['isp'],
+            m0=spec['m0'],
+            m_dry_end_outbound=spec['m_dry_end_outbound'],
+            m_dry_end_return=spec['m_dry_end_return'],
+        )
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
 
     # Hybrid chemical + electric missions
     from src.core.hybrid_propulsion import HYBRID_MISSIONS, get_hybrid_mission

@@ -122,6 +122,44 @@ HYBRID_MISSIONS: Dict[str, Dict] = {
         'orbit_insertion_dv_kms': 1.0,
         'n_segments': 20,
     },
+    'hybrid-saturn': {
+        'name': 'Hybrid: Saturn / Titan Orbiter',
+        'description': 'Cassini-class mission to Saturn with hybrid propulsion. Falcon Heavy-class '
+                       'launcher provides ~6 km/s v_inf (C3≈36), advanced ion engines handle the '
+                       '7.7-year cruise with 1200 kg of xenon, then a small chemical burn (~0.6 km/s) '
+                       'captures into Saturn orbit. Arrival v_inf is just 0.2 km/s — ion does the '
+                       'heavy lifting of matching Saturn\'s orbital velocity.',
+        'dep_body': 'earth',
+        'arr_body': 'saturn',
+        'dep_date': '2030-06-01',
+        'arr_date': '2038-02-06',
+        'launch_vinf_kms': 6.0,
+        'max_arrival_vinf_kms': 2.0,
+        'thrust_n': 0.3,
+        'isp': 4000.0,
+        'm0': 3000.0,
+        'm_dry': 1800.0,
+        'orbit_insertion_dv_kms': 0.6,
+        'n_segments': 25,
+    },
+    'hybrid-pluto': {
+        'name': 'Hybrid: Pluto Orbiter',
+        'description': 'Faster than New Horizons (which was a flyby) with orbital capability. Chemical '
+                       'launcher provides ~7 km/s v_inf, ion engines handle a ~12-year cruise, chemical '
+                       'bi-prop does orbit insertion at Pluto (~1 km/s). 2030s launch window.',
+        'dep_body': 'earth',
+        'arr_body': 'pluto',
+        'dep_date': '2030-01-15',
+        'arr_date': '2042-01-15',
+        'launch_vinf_kms': 7.5,
+        'max_arrival_vinf_kms': 3.0,
+        'thrust_n': 0.3,
+        'isp': 4500.0,
+        'm0': 3500.0,
+        'm_dry': 2000.0,
+        'orbit_insertion_dv_kms': 1.0,
+        'n_segments': 25,
+    },
 }
 
 

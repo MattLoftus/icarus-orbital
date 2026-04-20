@@ -351,7 +351,9 @@ def optimize_low_thrust(departure_body: str, arrival_body: str,
                         departure_date: str, arrival_date: str,
                         thrust_n: float = 0.1, isp: float = 3000.0,
                         m0: float = 1000.0, m_dry: float = 500.0,
-                        n_segments: int = 20, max_iter: int = 500) -> Dict:
+                        n_segments: int = 20, max_iter: int = 500,
+                        max_launch_vinf: float = None,
+                        max_arrival_vinf: float = None) -> Dict:
     """Convenience function for low-thrust trajectory optimization.
 
     Args:
@@ -371,5 +373,7 @@ def optimize_low_thrust(departure_body: str, arrival_body: str,
     """
     sc = Spacecraft(m0=m0, m_dry=m_dry, thrust_n=thrust_n, isp=isp)
     sf = SimsFlanagan(departure_body, arrival_body,
-                      departure_date, arrival_date, sc, n_segments)
+                      departure_date, arrival_date, sc, n_segments,
+                      max_launch_vinf_kms=max_launch_vinf,
+                      max_arrival_vinf_kms=max_arrival_vinf)
     return sf.optimize(max_iter=max_iter)
