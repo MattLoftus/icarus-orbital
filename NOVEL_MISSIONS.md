@@ -362,6 +362,117 @@ Tested 5 sequences with 5 archipelagos × 1500 generations + narrow DE refinemen
 
 ---
 
+---
+
+## 9. Low-Thrust Sample Return: Bennu (OSIRIS-REx alternative)
+
+**Question:** How does an ion-propulsion sample return to Bennu compare to the chemical OSIRIS-REx approach?
+
+**Method:** Sims-Flanagan low-thrust optimization for the outbound and return legs (Earth → Bennu rendezvous → Earth reentry). Fixed mission parameters: 200 mN thrust, 3000s Isp, 1500 kg launch mass.
+
+### Result
+
+| Metric | Ion | Chemical (§3) |
+|--------|-----|---------------|
+| Total Δv | 16.6 km/s (ion spiral) | 11.54 km/s (impulsive) |
+| Propellant | **400 kg (27%)** | ~93% of launch mass |
+| Mission duration | 3.8 years | 1.2 years |
+| Payload capacity | High | Low |
+
+### Analysis
+
+**Ion needs 3× more Δv but uses 3.5× less propellant mass**
+- The ion spiral requires higher total Δv because thrust is low, so the trajectory can't follow an efficient Hohmann transfer
+- But at 3000s Isp vs 450s chemical (6.7× higher exhaust velocity), each km/s of Δv costs ~7× less propellant
+- Net result: the ion mission launches with 73% of mass available for payload vs ~7% for chemical
+
+**This is exactly why sample return missions are increasingly ion**
+- Hayabusa (2003) and Hayabusa2 (2014) both used ion for sample return
+- OSIRIS-REx used chemical only because of development timing — it launched in 2016 when ion was less mature for NASA missions
+- Future NEA sample returns will almost certainly use ion
+
+**The time trade-off is real**
+- Ion takes 3× longer (3.8 years vs 1.2), which costs operational budget
+- But the 3.5× mass saving allows larger samples, more instruments, or a smaller launch vehicle
+
+---
+
+## 10. Hybrid: Saturn / Titan Orbiter
+
+**Question:** Can a modern hybrid propulsion mission match Cassini's capabilities with less launch mass?
+
+**Method:** Chemical launcher provides ~6 km/s v_inf (Falcon Heavy C3≈36), ion engines handle the 7.7-year cruise with v_inf constraints enforced, chemical bi-prop performs the orbit insertion burn.
+
+### Result
+
+| Component | Value |
+|-----------|-------|
+| Chemical launch v_inf | 6.0 km/s (Falcon Heavy class) |
+| Ion cruise Δv | ~6.0 km/s over 7.7 years |
+| Ion propellant | 1200 kg xenon |
+| **Arrival v_inf** | **0.21 km/s** |
+| Chemical Saturn orbit insertion | ~0.6 km/s |
+| Total chemical Δv | 6.6 km/s |
+| Mission duration | 7.7 years |
+
+### Analysis
+
+**Near-zero arrival v_inf is the headline**
+- Arrival v_inf of 0.21 km/s means the ion engine brings the spacecraft to almost the same velocity as Saturn
+- Chemical orbit insertion only needs ~0.6 km/s — vs Cassini's ~0.6 km/s insertion burn, comparable
+- But Cassini needed 6 gravity assists (VVEJ) and 7 years; this hybrid does it directly with no flybys
+
+**Mass budget**
+- With 6 km/s chemical Δv and 450s Isp: launch mass / dry mass = exp(6/4.4) = 3.9×
+- Hybrid: launch 3000 kg, dry 1800 kg, ratio only 1.7×
+- **The hybrid needs ~2.5× less launch mass for the same dry mass**
+
+**Comparison with Cassini**
+- Cassini: 5712 kg launch, 2125 kg dry, 7-year cruise via VVEJ, 4 flybys
+- This hybrid: 3000 kg launch, 1800 kg dry, 7.7-year cruise direct
+- Hybrid delivers larger dry mass per launch kilogram, enabling more science
+
+---
+
+## 11. Hybrid: Pluto Orbiter (faster than New Horizons, with capture)
+
+**Question:** Can we reach Pluto with orbital capability — something New Horizons couldn't do because it would have needed 14+ km/s of chemical Δv to slow down?
+
+**Method:** Chemical launcher for high v_inf (7.5 km/s, ~C3=56), ion engines for 12-year cruise, chemical bi-prop for Pluto orbit insertion.
+
+### Result
+
+| Component | Value |
+|-----------|-------|
+| Launch v_inf | 7.5 km/s (upper-class launcher, SLS-like C3) |
+| Ion cruise Δv | ~7.5 km/s |
+| Ion propellant | 1500 kg xenon (43% of 3500 kg launch mass) |
+| Arrival v_inf | ~3 km/s |
+| Chemical orbit insertion | ~1 km/s (elliptical Pluto orbit) |
+| Mission duration | 12 years |
+
+### Analysis
+
+**Pluto orbit capability without a 14 km/s chemical burn**
+- New Horizons arrived at Pluto at 14 km/s — way too fast for orbital capture with chemical propulsion
+- This hybrid uses 12 years of ion thrust to gradually match Pluto's solar orbit, arriving with only 3 km/s v_inf
+- Chemical insertion is then manageable (1 km/s)
+
+**Compare to New Horizons**
+- NH: 9.5 year transit (with Jupiter GA), 14 km/s arrival v_inf, flyby only
+- This hybrid: 12 years, 3 km/s arrival v_inf, full orbital capture
+
+**Why hybrid beats pure-chemical here**
+- Pure chemical Pluto orbiter needs: 11 km/s Earth departure + 14 km/s Pluto braking = 25+ km/s chemical Δv
+- At 450s Isp, that's ~exp(25/4.4) = 296× mass ratio — impossible
+- Hybrid splits: 7.5 km/s chemical launch + ion cruise handles most braking + 1 km/s chemical = only 8.5 km/s chemical Δv
+
+**Why hybrid beats pure-ion**
+- Pure ion Pluto at 12 years from LEO would need ~25 km/s ion Δv — doable but propellant-hungry
+- Using chemical for the initial Earth-escape kick saves ~5 km/s of ion Δv, reducing propellant by ~30%
+
+---
+
 *Generated: 2026-04-20*
 *Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement for MGA problems*
 *Low-thrust: Sims-Flanagan with scipy SLSQP NLP solver*

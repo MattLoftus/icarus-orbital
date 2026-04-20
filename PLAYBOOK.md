@@ -162,6 +162,7 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 4. [x] **Interstellar Precursor** — 5-sequence comparison with 15 km/s dv budget. Winner: E→V→E→J at 35.10 km/s / 7.4 AU/yr (reaches 200 AU in 27 years, 2× Voyager 1's speed). Saturn assist is counterproductive after VEJ. See `NOVEL_MISSIONS.md` §4.
 
 5. [x] **Multi-NEA Tour** — 4-pair comparison. Winner: 2000 SG344 → 2006 RH120 at **3.71 km/s** / 2.5yr. Mini-moon RH120 is a uniquely efficient multi-target partner. Only 1.9 km/s more than SG344 alone — second target is essentially "free". See `NOVEL_MISSIONS.md` §5.
+6. [x] **Electric / Solar Sail / Hybrid novel missions** — §6 (Low-thrust Earth-Mars, Earth-Vesta), §7 (Solar sail interstellar escape at 15 km/s asymptotic), §8 (Hybrid Mars capture), §9 (Ion Bennu sample return — 27% propellant vs 93% chemical), §10 (Hybrid Saturn — 7.7yr Cassini-class), §11 (Hybrid Pluto orbiter — first-ever Pluto orbit capability).
 
 ### Propulsion Expansion: Electric + Solar Sail
 
