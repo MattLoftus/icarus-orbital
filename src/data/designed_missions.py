@@ -84,8 +84,48 @@ _DESIGNED_MISSIONS = {
 }
 
 
+# Sample return missions — stored x* values for pre-computed round-trip trajectories
+_SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
+    'sample-return-sg344': {
+        'name': 'Sample Return: 2000 SG344',
+        'description': 'Extraordinarily low-delta-v sample return to 2000 SG344, '
+                       'one of the most accessible NEAs in the NHATS database. '
+                       'Total 1.83 km/s over 2.1 years — dramatically cheaper than any '
+                       'flown sample return mission.',
+        'designation': '2000 SG344',
+        'x': [10262.706, 150.6001, 335.8358, 285.5855],
+    },
+    'sample-return-hu4': {
+        'name': 'Sample Return: 2008 HU4',
+        'description': 'Low-inclination near-Earth asteroid, 3.92 km/s total Δv. '
+                       'Second-most accessible target tested.',
+        'designation': '2008 HU4',
+        'x': [12921.5851, 318.11, 32.6289, 345.3932],
+    },
+    'sample-return-ao10': {
+        'name': 'Sample Return: 1999 AO10',
+        'description': 'Accessible NEA with slightly eccentric orbit, 5.91 km/s total Δv.',
+        'designation': '1999 AO10',
+        'x': [11766.6872, 276.9613, 30.0, 280.8532],
+    },
+}
+
+
 def get_designed_mission(mission_id: str) -> Dict:
     """Get a designed mission trajectory, propagated from stored x*."""
+    # Check sample return registry first
+    if mission_id in _SAMPLE_RETURN_MISSIONS:
+        from src.core.sample_return import propagate_sample_return_mission
+        from src.data.sbdb import fetch_asteroid_elements
+        spec = _SAMPLE_RETURN_MISSIONS[mission_id]
+        elements = fetch_asteroid_elements(spec['designation'])
+        if not elements:
+            return None
+        result = propagate_sample_return_mission(np.array(spec['x']), elements)
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
     if mission_id not in _DESIGNED_MISSIONS:
         return None
 

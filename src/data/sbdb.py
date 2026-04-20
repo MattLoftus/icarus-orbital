@@ -48,6 +48,7 @@ def fetch_asteroid_elements(designation: str) -> Optional[Dict]:
         'orbit_id': orbit.get('orbit_id', ''),
         'condition_code': orbit.get('condition_code', ''),
         'moid_au': float(orbit.get('moid', 0) or 0),
+        'epoch_jd': float(orbit.get('epoch', 0) or 0),
     }
 
     # Parse orbital elements

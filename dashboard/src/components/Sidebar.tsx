@@ -569,6 +569,9 @@ export function Sidebar() {
               { id: 'fast-jupiter-vej', label: 'Jupiter: VEJ', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr' },
               { id: 'jupiter-emaj', label: 'Jupiter: EMaJ', sub: 'E→E→Ma→J', detail: '10.07 km/s · 6.0yr' },
               { id: 'jupiter-maej', label: 'Jupiter: MaEJ', sub: 'E→Ma→E→J', detail: '10.66 km/s · 6.5yr' },
+              { id: 'sample-return-sg344', label: 'Sample Return: SG344', sub: 'E→2000 SG344→E', detail: '1.83 km/s · 2.1yr' },
+              { id: 'sample-return-hu4', label: 'Sample Return: HU4', sub: 'E→2008 HU4→E', detail: '3.92 km/s · 1.9yr' },
+              { id: 'sample-return-ao10', label: 'Sample Return: AO10', sub: 'E→1999 AO10→E', detail: '5.91 km/s · 1.6yr' },
             ].map(m => (
               <button
                 key={m.id}

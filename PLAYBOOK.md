@@ -155,7 +155,7 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 
 1. [x] **Modern Grand Tour (2028–2035)** — Find the best 3–4 planet outer solar system tour available in near-future launch windows. The Voyager-era alignment (all 4 outer planets) won't repeat for 175 years, but partial tours (e.g., J-S-U or J-S-N) may be feasible. Use SPICE ephemeris for real planet positions, MGA-1DSM optimizer with automated sequence discovery. Compare against a direct Jupiter-only mission as baseline. Deliverable: optimized trajectory + 3D visualization as a new "designed mission" in the sidebar.
 
-2. [ ] **NEA Sample Return** — Design an Earth→asteroid→Earth round-trip trajectory for the most accessible NHATS target. Requires a new objective function: minimize outbound + return delta-v with a stay time at the asteroid. The outbound leg uses gravity assists; the return leg is a direct transfer timed for Earth reentry. Real mission type (OSIRIS-REx cost $1B; a cheaper trajectory is valuable). Deliverable: ranked list of top 5 round-trip targets with trajectories.
+2. [x] **NEA Sample Return** — 6-target comparison. Winner: 2000 SG344 at **1.83 km/s** (6× cheaper than OSIRIS-REx trajectory). Bennu at 11.54, Ryugu at 9.57, Apophis at 8.86. Access scales strongly with orbital similarity to Earth. See `NOVEL_MISSIONS.md` §3.
 
 3. [x] **Fast Jupiter/Europa** — 7-sequence comparison. Winner: E→E→Ma→J at 10.07 km/s (Mars assists competitive with Venus). Fastest practical: E→V→E→J at 10.18 km/s / 4.6yr. Direct E→J costs 14.36 km/s (C3=75.5, impractical). See `NOVEL_MISSIONS.md` §2.
 

@@ -110,6 +110,57 @@ If constrained to C3 < 10 km²/s² and TOF < 7 years:
 
 ---
 
+## 3. NEA Sample Return — Target Comparison (2028–2036)
+
+**Question:** What's the most fuel-efficient near-Earth asteroid for a sample return mission? How do real mission targets compare to the most accessible NHATS candidates?
+
+**Method:** Tested 6 NEAs spanning a range of accessibility. Each trajectory is a simple two-Lambert round-trip: Earth → asteroid (outbound transfer + rendezvous) → stay → asteroid → Earth (return transfer + reentry). 4 decision variables: departure epoch, outbound TOF, stay time, return TOF. Optimized with 3 archipelagos × 1000 generations + narrow DE refinement.
+
+Cost function: `Δv = v_inf_launch + v_rendezvous_at_asteroid + v_departure_from_asteroid + v_inf_arrival_at_Earth`
+
+### Results
+
+| Target | Orbit | Total Δv (km/s) | Launch | Rendezvous | Dep | Arrival | Duration |
+|--------|-------|-----------------|--------|------------|-----|---------|----------|
+| **2000 SG344** | a=0.98, e=0.07, i=0.1° | **1.83** | 0.22 | 0.58 | 0.70 | 0.33 | 2.1 yr |
+| 2008 HU4 | a=1.07, e=0.06, i=1.4° | 3.92 | 0.92 | 1.75 | 0.45 | 0.80 | 1.9 yr |
+| 1999 AO10 | a=0.91, e=0.11, i=2.6° | 5.91 | 1.10 | 2.13 | 2.33 | 0.36 | 1.6 yr |
+| Apophis | a=0.92, e=0.19, i=3.3° | 8.86 | 1.55 | 2.86 | 2.39 | 2.06 | 2.3 yr |
+| Ryugu (Hayabusa2) | a=1.19, e=0.19, i=5.9° | 9.57 | 0.09 | 4.59 | 2.74 | 2.15 | 1.9 yr |
+| Bennu (OSIRIS-REx) | a=1.13, e=0.20, i=6.0° | 11.54 | 0.64 | 5.23 | 1.91 | 3.76 | 1.2 yr |
+
+### Analysis
+
+**Winner: 2000 SG344 at 1.83 km/s — remarkably accessible**
+- Extremely Earth-like orbit (a=0.98 AU, e=0.07, i=0.1°) means low relative velocities at every phase
+- Rendezvous cost is just 0.58 km/s vs 5.23 for Bennu — matching velocities with SG344 is nearly free
+- 2028 departure window, 2.1 year total mission
+- This total Δv is **6× cheaper than OSIRIS-REx's Bennu mission** (accounting only for trajectory; real mission dv includes margins, safety factors, and mission design overhead)
+
+**Accessibility scales strongly with orbital similarity to Earth**
+- 2000 SG344 (most similar) at 1.83 km/s
+- Bennu (moderately inclined, eccentric) at 11.54 km/s
+- A 6× spread across our test set, driven mostly by rendezvous and return arrival costs
+
+**Famous mission targets are actually expensive**
+- Bennu and Ryugu both score 9.5–11.5 km/s — their scientific interest (carbonaceous chondrites, water, organics) justified the cost
+- Apophis is surprisingly accessible at 8.86 km/s despite its fame, thanks to its low-inclination Earth-crossing orbit
+
+**Strategic implication**
+- For a low-cost sample return demonstrator, 2000 SG344 or 2008 HU4 are dramatically cheaper targets
+- The NHATS database identified these specifically for this accessibility — they're the "hidden gems" of asteroid science
+- Trade-off: famous targets have prior characterization (radar, photometry); SG344-class targets require precursor observations
+
+### Simplifications and caveats
+
+- No gravity assists — a Venus or Earth flyby could reduce Bennu/Ryugu costs by 1-3 km/s
+- No deep-space maneuvers (pure Lambert)
+- Impulsive propulsion only — low-thrust could halve the delta-v for the low-accessibility targets
+- Stay time is optimized as a decision variable; mission-realistic science operations need 30+ days minimum
+- Earth arrival Δv is counted as a cost; in practice this becomes atmospheric reentry (free for a sample capsule, structural for an orbiter)
+
+---
+
 *Generated: 2026-04-16*
 *Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement*
 *Evaluator: C generic_mga_1dsm_eval, ~30,000 evals/sec*
