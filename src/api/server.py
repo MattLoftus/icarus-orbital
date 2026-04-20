@@ -352,12 +352,25 @@ def list_reference_missions():
 
 
 @app.get("/api/reference-missions/{name}")
-def get_ref_mission(name: str):
-    """Get full reference mission data including trajectory positions."""
-    mission = get_reference_mission(name)
+async def get_ref_mission(name: str):
+    """Get full reference mission data including trajectory positions.
+
+    Historical electric propulsion missions (Dawn, Hayabusa, etc.) are
+    lazy-computed in a thread pool and cached.
+    """
+    import asyncio
+    loop = asyncio.get_event_loop()
+    mission = await loop.run_in_executor(None, get_reference_mission, name)
     if not mission:
         raise HTTPException(404, f"Mission '{name}' not found")
     return mission
+
+
+@app.get("/api/historical-ep-missions")
+def list_historical_ep_missions_endpoint():
+    """List available historical electric propulsion / hybrid / sail missions."""
+    from src.data.reference_missions import list_historical_ep_missions
+    return list_historical_ep_missions()
 
 
 @app.get("/api/gtop-benchmarks")

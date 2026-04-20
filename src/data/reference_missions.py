@@ -480,10 +480,56 @@ def get_reference_mission(name: str) -> Optional[Dict[str, Any]]:
     """Return a single mission dict by name, or None if not found.
 
     Name matching is case-insensitive and supports partial matches.
+    Tries classic reference missions first, then historical EP missions.
     """
     missions = _load_missions()
     name_lower = name.lower()
     for m in missions:
         if name_lower in m["name"].lower():
             return m
+
+    # Fall back to historical electric propulsion / hybrid / sail missions
+    return _get_historical_ep_mission(name)
+
+
+# --- Historical electric propulsion / hybrid / solar sail missions ---
+# Lazy-computed and cached because building trajectories is slow (30-60s each).
+
+_HISTORICAL_EP_REGISTRY = {
+    'dawn': ('Dawn (NASA, 2007-2018)', 'src.data.historical_ep_missions:build_dawn_mission'),
+    'hayabusa2': ('Hayabusa2 (JAXA, 2014-2020)', 'src.data.historical_ep_missions:build_hayabusa2_mission'),
+    'hayabusa': ('Hayabusa (JAXA, 2003-2010)', 'src.data.historical_ep_missions:build_hayabusa_mission'),
+    'bepicolombo': ('BepiColombo (ESA/JAXA, 2018-2025)', 'src.data.historical_ep_missions:build_bepi_colombo_mission'),
+    'psyche': ('Psyche (NASA, 2023-2029)', 'src.data.historical_ep_missions:build_psyche_mission'),
+    'ikaros': ('IKAROS (JAXA, 2010)', 'src.data.historical_ep_missions:build_ikaros_mission'),
+}
+
+_HISTORICAL_EP_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_historical_ep_mission(name: str) -> Optional[Dict[str, Any]]:
+    """Look up a historical EP mission by short id or full name, with caching."""
+    name_lower = name.lower()
+
+    # Try to match short key first
+    for key, (full_name, _) in _HISTORICAL_EP_REGISTRY.items():
+        if key == name_lower or name_lower in full_name.lower():
+            if key in _HISTORICAL_EP_CACHE:
+                return _HISTORICAL_EP_CACHE[key]
+            # Import and call the builder
+            module_name, func_name = _HISTORICAL_EP_REGISTRY[key][1].split(':')
+            import importlib
+            mod = importlib.import_module(module_name)
+            builder = getattr(mod, func_name)
+            mission = builder()
+            _HISTORICAL_EP_CACHE[key] = mission
+            return mission
     return None
+
+
+def list_historical_ep_missions() -> List[Dict[str, Any]]:
+    """Return metadata for all historical EP missions (without computing trajectories)."""
+    return [
+        {'id': key, 'name': full_name}
+        for key, (full_name, _) in _HISTORICAL_EP_REGISTRY.items()
+    ]
