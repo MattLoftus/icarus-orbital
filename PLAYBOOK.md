@@ -159,9 +159,9 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 
 3. [x] **Fast Jupiter/Europa** — 7-sequence comparison. Winner: E→E→Ma→J at 10.07 km/s (Mars assists competitive with Venus). Fastest practical: E→V→E→J at 10.18 km/s / 4.6yr. Direct E→J costs 14.36 km/s (C3=75.5, impractical). See `NOVEL_MISSIONS.md` §2.
 
-4. [ ] **Interstellar Precursor** — Maximize heliocentric escape velocity using planetary gravity assists. Goal: reach 200+ AU (solar gravity lens focus) as fast as possible. Different objective function from all benchmarks (max velocity, not min delta-v). Use Jupiter and optionally Saturn for maximum slingshot. Deliverable: Pareto front of escape velocity vs launch C3.
+4. [x] **Interstellar Precursor** — 5-sequence comparison with 15 km/s dv budget. Winner: E→V→E→J at 35.10 km/s / 7.4 AU/yr (reaches 200 AU in 27 years, 2× Voyager 1's speed). Saturn assist is counterproductive after VEJ. See `NOVEL_MISSIONS.md` §4.
 
-5. [ ] **Multi-NEA Tour** — Visit 3–5 near-Earth asteroids in a single mission, minimizing total delta-v. This is a traveling salesman problem in 4D (position + time). Filter NHATS for clusters of low-delta-v targets with compatible orbital elements, then optimize the visit sequence and transfer dates. Deliverable: top 3 multi-target tours with animated 3D visualization.
+5. [x] **Multi-NEA Tour** — 4-pair comparison. Winner: 2000 SG344 → 2006 RH120 at **3.71 km/s** / 2.5yr. Mini-moon RH120 is a uniquely efficient multi-target partner. Only 1.9 km/s more than SG344 alone — second target is essentially "free". See `NOVEL_MISSIONS.md` §5.
 
 ### Propulsion Expansion: Electric + Solar Sail
 

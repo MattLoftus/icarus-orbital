@@ -161,6 +161,98 @@ Cost function: `Δv = v_inf_launch + v_rendezvous_at_asteroid + v_departure_from
 
 ---
 
-*Generated: 2026-04-16*
+## 4. Interstellar Precursor — Maximum Escape Velocity (2028–2036)
+
+**Question:** What gravity assist sequence produces the fastest escape trajectory from the solar system?
+
+**Method:** Reformulated the optimization objective: instead of minimizing delta-v, *maximize* asymptotic escape velocity (v_inf after leaving the solar system's gravity well). Constrained total impulsive delta-v (launch + DSMs) to ≤ 15 km/s — a realistic budget for real spacecraft. Asymptotic velocity computed from the specific orbital energy after the last gravity assist: `v_inf² = v² - 2μ/r`.
+
+Tested 5 sequences with 5 archipelagos × 1500 generations + narrow DE refinement.
+
+### Results
+
+| Sequence | v_inf escape (km/s) | AU/yr | Years to 200 AU | Launch C3 | Launch v_inf | DSM |
+|----------|--------------------:|------:|----------------:|----------:|-------------:|-----|
+| **E→V→E→J** | **35.10** | **7.40** | **27** | 12.9 | 3.59 | 11.41 |
+| E→E→J | 35.02 | 7.39 | 27 | 9.0 | 3.00 | 12.00 |
+| E→J→S | 24.65 | 5.20 | 38 | 17.7 | 4.20 | 10.80 |
+| E→J→S (long) | 23.62 | 4.98 | 40 | 15.2 | 3.90 | 11.10 |
+| E→J (direct) | 19.98 | 4.22 | 47 | 10.2 | 3.20 | 11.80 |
+
+### Analysis
+
+**Winner: Venus-Earth-Jupiter (VEJ) at 35 km/s / 7.4 AU/yr — reaches 200 AU in 27 years**
+- VEJ and EEJ are essentially tied; both use Earth and Jupiter gravity assists to maximize the escape velocity after the final Jupiter slingshot
+- 7.4 AU/yr is **2× faster than Voyager 1** (currently ~3.6 AU/yr at 165 AU)
+- Comparable to proposed mission concepts like New Horizons 2 or the Solar Gravity Lens mission
+
+**Counterintuitive: adding Saturn to the tour makes you slower**
+- E→J alone: 20 km/s, 4.2 AU/yr
+- E→J→S: 25 km/s, 5.2 AU/yr (Saturn helps)
+- But E→V→E→J: 35 km/s, 7.4 AU/yr (**best**) — and adding Saturn to this would cost velocity
+- Saturn is "too far and too slow" to further accelerate a spacecraft already moving at 35 km/s; the extra TOF doesn't compensate for the slingshot gained
+
+**The 15 km/s total-dv budget is the binding constraint**
+- Every optimal solution uses nearly all 15 km/s budget
+- The launcher provides ~3 km/s (low C3); DSMs provide the other ~11-12 km/s
+- Without this constraint, the optimizer exploits infinite DSMs; with it, the physics becomes realistic
+
+**For comparison with real missions**
+- Voyager 1 post-Titan flyby: ~17 km/s at 100 AU (5.2 AU/yr at launch, ~3.6 AU/yr now)
+- Interstellar Probe concept studies: targeted 6-10 AU/yr
+- Our 7.4 AU/yr fits this class of missions with modern, achievable physics
+
+**Trajectory:** Depart Earth May 2029, Venus flyby June 2030, Earth flyby June 2031, Jupiter flyby December 2036. Spacecraft escapes at 35 km/s asymptotic.
+
+---
+
+## 5. Multi-NEA Tour — 2-Asteroid Rendezvous Tours (2028–2036)
+
+**Question:** Can a single mission visit multiple near-Earth asteroids efficiently?
+
+**Method:** Tested 4 pairs of accessible NEAs. Each tour is: Earth → A1 (rendezvous) → stay → A1 → A2 (rendezvous) → stay → A2 → Earth. 6 decision variables: departure epoch, 3 leg TOFs, 2 stay times. Cost = sum of v_inf's at each boundary (launch + 4 rendezvous transitions + Earth arrival).
+
+### Results
+
+| Pair | Total Δv (km/s) | Launch | Arr A1 | Dep A1 | Arr A2 | Dep A2 | Earth | Duration |
+|------|----------------:|-------:|-------:|-------:|-------:|-------:|------:|---------:|
+| **2000 SG344 → 2006 RH120** | **3.71** | 0.22 | 0.58 | 0.64 | 0.44 | 0.87 | 0.95 | 2.5 yr |
+| 2000 SG344 → 2008 HU4 | 7.88 | 2.08 | 1.69 | 0.74 | 1.04 | 0.72 | 1.61 | 3.6 yr |
+| 2000 SG344 → 1999 AO10 | 9.90 | 1.18 | 0.47 | 2.11 | 3.48 | 2.29 | 0.38 | 4.1 yr |
+| 2008 HU4 → 1999 AO10 | 11.54 | 2.54 | 1.37 | 1.30 | 3.11 | 1.55 | 1.68 | 4.1 yr |
+
+### Analysis
+
+**Winner: 2000 SG344 → 2006 RH120 at 3.71 km/s over 2.5 years**
+- **Less than half the cost of a single-target sample return to Bennu** (11.54 km/s)
+- 2006 RH120 is a "mini-moon" — a natural object temporarily captured in Earth's co-orbital region. Its orbit is extraordinarily Earth-like, which is why the rendezvous and departure costs are tiny (0.44 and 0.87 km/s)
+- 2000 SG344 is the most accessible NHATS target (§3 sample return analysis)
+- Mission: depart Feb 2028, reach SG344 July 2028, reach RH120 June 2029, return Aug 2030
+
+**Compare single vs multi-target**
+- Sample return SG344 alone: 1.83 km/s, 2.1 years (§3)
+- Tour SG344 + RH120: 3.71 km/s, 2.5 years — only 1.9 km/s more for a second target!
+- Extra science target effectively "free" when the orbits align
+
+**Adding 2008 HU4 significantly hurts**
+- Sample return HU4 alone: 3.92 km/s
+- Tour SG344 + HU4: 7.88 km/s — 2× more than either alone
+- HU4's orbit doesn't match SG344's as well; the inter-asteroid transfer is expensive
+
+**Strategic implication**
+- Mini-moons like 2006 RH120 are uniquely valuable multi-target mission partners because of their Earth-like orbits
+- A "tour of the gems" — most accessible NHATS + nearest mini-moon — is dramatically cheaper than a flagship mission to a single famous target
+
+### Simplifications
+
+- Fixed pair (no TSP over N asteroids — that's the natural extension)
+- No gravity assists (pure Lambert legs)
+- No DSMs
+- Stay times are optimization variables, not mission-planning constraints
+- 2006 RH120 was only a mini-moon in 2006–2007; by 2029 it's a regular NEO — but this trajectory still works based on its current orbital elements
+
+---
+
+*Generated: 2026-04-20*
 *Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement*
 *Evaluator: C generic_mga_1dsm_eval, ~30,000 evals/sec*

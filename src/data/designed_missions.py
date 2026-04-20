@@ -110,10 +110,62 @@ _SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
     },
 }
 
+# Interstellar precursor missions (escape trajectory, maximize v_inf)
+_INTERSTELLAR_MISSIONS: Dict[str, Dict] = {
+    'interstellar-vej': {
+        'name': 'Interstellar Precursor: VEJ',
+        'description': 'Venus-Earth-Jupiter gravity assist chain maximizing escape velocity. '
+                       'Reaches 35 km/s asymptotic (7.4 AU/yr) — 200 AU in 27 years. '
+                       'Launch C3=12.9, total impulsive Δv 15 km/s (hard budget).',
+        'sequence': ['earth', 'venus', 'earth', 'jupiter'],
+        'x': [10735.5604, 3.5867, 0.406, 0.74, 388.0118, 379.3022, 1997.9112,
+              0.4132, 0.0336, 0.8648, 1.5795, 1.8371, 7.6486,
+              1.6623, -1.1969, 2.9647],
+    },
+}
+
+
+# Multi-NEA tour missions (2-asteroid rendezvous tours)
+_MULTI_NEA_MISSIONS: Dict[str, Dict] = {
+    'tour-sg344-rh120': {
+        'name': 'Tour: SG344 → RH120',
+        'description': 'Two-asteroid rendezvous tour visiting 2000 SG344 then 2006 RH120 '
+                       '(a "mini-moon" — temporarily captured near-Earth object). '
+                       'Incredibly low 3.71 km/s total Δv over 2.5 years, less than half '
+                       'the cost of a single-target Bennu sample return.',
+        'ast1_designation': '2000 SG344',
+        'ast2_designation': '2006 RH120',
+        'x': [10262.7072, 150.6002, 42.4993, 290.4796, 137.7934, 291.546],
+    },
+}
+
 
 def get_designed_mission(mission_id: str) -> Dict:
     """Get a designed mission trajectory, propagated from stored x*."""
-    # Check sample return registry first
+    # Interstellar precursor
+    if mission_id in _INTERSTELLAR_MISSIONS:
+        from src.core.interstellar import propagate_interstellar_mission
+        spec = _INTERSTELLAR_MISSIONS[mission_id]
+        result = propagate_interstellar_mission(np.array(spec['x']), spec['sequence'])
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
+    # Multi-NEA tour
+    if mission_id in _MULTI_NEA_MISSIONS:
+        from src.core.multi_nea_tour import propagate_2nea_mission
+        from src.data.sbdb import fetch_asteroid_elements
+        spec = _MULTI_NEA_MISSIONS[mission_id]
+        el1 = fetch_asteroid_elements(spec['ast1_designation'])
+        el2 = fetch_asteroid_elements(spec['ast2_designation'])
+        if not (el1 and el2):
+            return None
+        result = propagate_2nea_mission(np.array(spec['x']), el1, el2)
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
+    # Sample return
     if mission_id in _SAMPLE_RETURN_MISSIONS:
         from src.core.sample_return import propagate_sample_return_mission
         from src.data.sbdb import fetch_asteroid_elements

@@ -572,6 +572,8 @@ export function Sidebar() {
               { id: 'sample-return-sg344', label: 'Sample Return: SG344', sub: 'E→2000 SG344→E', detail: '1.83 km/s · 2.1yr' },
               { id: 'sample-return-hu4', label: 'Sample Return: HU4', sub: 'E→2008 HU4→E', detail: '3.92 km/s · 1.9yr' },
               { id: 'sample-return-ao10', label: 'Sample Return: AO10', sub: 'E→1999 AO10→E', detail: '5.91 km/s · 1.6yr' },
+              { id: 'interstellar-vej', label: 'Interstellar: VEJ', sub: 'E→V→E→J→∞', detail: '7.40 AU/yr · 200AU in 27yr' },
+              { id: 'tour-sg344-rh120', label: 'Tour: SG344→RH120', sub: 'E→SG344→RH120→E', detail: '3.71 km/s · 2.5yr' },
             ].map(m => (
               <button
                 key={m.id}
