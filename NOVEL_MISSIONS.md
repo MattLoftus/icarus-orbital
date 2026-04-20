@@ -253,6 +253,117 @@ Tested 5 sequences with 5 archipelagos × 1500 generations + narrow DE refinemen
 
 ---
 
+---
+
+## 6. Electric Propulsion: Low-Thrust Missions (2028–2032)
+
+**Question:** How do ion propulsion missions compare against chemical alternatives? What does 15× higher I_sp buy you?
+
+**Method:** Sims-Flanagan low-thrust trajectory optimization with scipy SLSQP. Each leg is divided into N impulsive segments at midpoints, bounded by the spacecraft's instantaneous thrust-to-mass capability. Mass depletion tracked via the rocket equation.
+
+### Results
+
+| Mission | Ion Δv (km/s) | TOF | Propellant | Launch V∞ | Arrival V∞ |
+|---------|---------------:|----:|----------:|----------:|-----------:|
+| **Low-Thrust Earth → Mars** | 4.71 | 400 d | 223 kg (15% of 1500 kg) | 0.77 | 0.47 |
+| **Low-Thrust Earth → Vesta** (Dawn-like) | 9.18 | 1300 d | 350 kg (27% of 1300 kg) | 5.60 | 0.55 |
+
+### Analysis
+
+**Earth → Mars: pure low-thrust spiral**
+- 4.71 km/s Δv over 400 days, with both departure and arrival v_infs < 1 km/s
+- Only 223 kg of xenon propellant used (15% of launch mass)
+- A chemical mission at the same Δv would need ~72% propellant (I_sp ~450s for bi-prop) — nearly 5× more mass for propellant vs 5× less for ion
+- The trade-off: ion takes 400 days vs Hohmann's ~260 days, and needs solar-scale power
+
+**Earth → Vesta (Dawn replica)**
+- Parameters match the real Dawn mission: 92 mN thrust, 3000s I_sp, ~1300 kg launch
+- 350 kg of propellant for a 1300-day transfer ending in a full rendezvous with Vesta (0.55 km/s arrival v_inf)
+- Chemical rendezvous at Vesta would require ~3-4 km/s arrival burn; ion brings spacecraft to almost zero relative velocity using continuous deceleration
+
+**Key insight: ion doesn't save Δv, it saves propellant mass**
+- The total Δv is similar to or larger than chemical missions
+- But at 3000s I_sp (vs 450s chemical), every km/s of Δv costs dramatically less mass
+- This is why Dawn (1217 kg) could do both Vesta AND Ceres with a single spacecraft — impossible with chemical
+
+---
+
+## 7. Solar Sail: Propellantless Interstellar Escape (2028)
+
+**Question:** Can a solar sail escape the solar system without propellant? How fast?
+
+**Method:** Numerical integration (RK4) of the full equations of motion including continuous radiation pressure. Ideal sail model: thrust = 2P₀A/c × (r₀/r)² × cos²(α) × n̂, with characteristic acceleration a_c at 1 AU as the sail's figure of merit. Locally-optimal control: sail normal at 35.26° cone angle aligned with orbital velocity for maximum tangential thrust.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Characteristic acceleration a_c | 3.0 mm/s² (future-tech, achievable with advanced composite sails) |
+| Time to solar system escape | 0.6 years (positive orbital energy) |
+| Asymptotic cruise velocity | **15.0 km/s (3.2 AU/yr)** — Voyager-class |
+| Propellant | **Zero** |
+
+### Analysis
+
+**The sail's unique property: no propellant, unlimited mission duration**
+- A_c = 3 mm/s² means 3 mN of thrust per kg of spacecraft at 1 AU
+- Falls as 1/r² with distance from the Sun
+- After reaching escape energy, the sail continues adding energy (diminishing as r increases) — the final asymptotic v_inf is what matters
+
+**Comparison with chemical interstellar precursor (§4)**
+- Chemical E-V-E-J: 35.1 km/s asymptotic, 15 km/s total impulsive Δv
+- Solar sail: 15.0 km/s asymptotic, zero propellant
+- Chemical is ~2× faster but consumed ~15 km/s of rocket equation budget
+- Sail is slower but needs only the launch vehicle to deploy it
+
+**Technology readiness**
+- Current sails (IKAROS demo, Solar Cruiser concept): 0.1-1 mm/s² — too slow for escape in reasonable time
+- Near-term advanced (lightweight composite booms, reflective aluminized membrane): 1-2 mm/s²
+- Our demo at 3 mm/s² is future-tech but plausible with 10m² per kg areal density
+
+**The sundiver strategy** (implemented as option): instead of spiraling out, brake initially to fall toward the Sun, exploit the deep gravity well (Oberth effect) with perihelion at ~0.2 AU, then accelerate outward. Can achieve higher v_inf for given a_c but requires more complex control.
+
+---
+
+## 8. Hybrid Propulsion: Mars Capture (2030)
+
+**Question:** How do hybrid high-thrust/low-thrust missions combine the strengths of each propulsion type?
+
+**Method:** Chemical launcher provides Earth-departure v_inf. Ion engines handle cruise (Sims-Flanagan). Chemical bi-prop does impulsive orbit insertion at arrival. Reports the total chemical Δv budget alongside the ion cruise Δv and propellant usage.
+
+### Result
+
+| Component | Value |
+|-----------|-------|
+| Chemical launch v_inf | 0.77 km/s (C3 = 0.6 — trivial launch) |
+| Ion cruise Δv | 4.71 km/s |
+| Chemical Mars orbit insertion | 1.0 km/s |
+| **Total chemical Δv** | **1.77 km/s** |
+| Ion propellant | 223 kg xenon |
+| TOF | 400 days |
+
+### Analysis
+
+**Chemical Δv is dramatically reduced**
+- Chemical-only Earth-Mars orbit insertion needs ~4-5 km/s total (1-2 for Earth departure + 1-2 for TCMs + 1-2 for Mars orbit insertion)
+- Hybrid splits this: ion handles cruise, chemical only for critical impulsive burns
+- Total chemical Δv: 1.77 km/s — nearly 3× less than chemical-only
+
+**Real-world parallels**
+- Dawn (ion + chemical): cruise and orbit change on ion, critical burns on chemical
+- BepiColombo (Europa, launched 2018): ion cruise to Mercury + chemical braking, similar architecture
+- SMART-1 (Moon, 2003): proved the concept — ion does everything except the critical burns
+
+**Why this matters**
+- Launcher can be smaller (less chemical fuel needed)
+- Ion engines operate efficiently over long cruises
+- Chemical reserved for precise, time-critical maneuvers (orbit insertion, course corrections)
+- Total mass budget: much lower propellant overall vs chemical-only, slightly higher vs pure ion (for missions requiring captures)
+
+---
+
 *Generated: 2026-04-20*
-*Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement*
-*Evaluator: C generic_mga_1dsm_eval, ~30,000 evals/sec*
+*Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement for MGA problems*
+*Low-thrust: Sims-Flanagan with scipy SLSQP NLP solver*
+*Solar sail: RK4 numerical integration of full continuous-thrust dynamics*
+*Evaluator: C generic_mga_1dsm_eval for MGA, ~30,000 evals/sec*

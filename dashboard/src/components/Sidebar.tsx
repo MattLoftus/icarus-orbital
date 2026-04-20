@@ -574,6 +574,10 @@ export function Sidebar() {
               { id: 'sample-return-ao10', label: 'Sample Return: AO10', sub: 'E→1999 AO10→E', detail: '5.91 km/s · 1.6yr' },
               { id: 'interstellar-vej', label: 'Interstellar: VEJ', sub: 'E→V→E→J→∞', detail: '7.40 AU/yr · 200AU in 27yr' },
               { id: 'tour-sg344-rh120', label: 'Tour: SG344→RH120', sub: 'E→SG344→RH120→E', detail: '3.71 km/s · 2.5yr' },
+              { id: 'lt-earth-mars', label: 'Low-Thrust: Earth→Mars', sub: 'Ion, E→Mars', detail: '223 kg Xe · 400d · 4.71 km/s' },
+              { id: 'lt-earth-vesta', label: 'Low-Thrust: Earth→Vesta', sub: 'Ion, Dawn-like', detail: '350 kg Xe · 1300d · 9.18 km/s' },
+              { id: 'sail-interstellar', label: 'Solar Sail: Interstellar', sub: 'Zero propellant', detail: '15.5 km/s · 3.3 AU/yr' },
+              { id: 'hybrid-mars-capture', label: 'Hybrid: Mars Capture', sub: 'Ion + Chemical orbit insertion', detail: 'Ion cruise + chem capture' },
             ].map(m => (
               <button
                 key={m.id}

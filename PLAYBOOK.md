@@ -167,15 +167,24 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 
 The current system is built for **chemical (impulsive) propulsion** — every maneuver is an instantaneous velocity change. Expanding to other propulsion types requires new physics models, not just parameter changes.
 
-**Electric Propulsion (Ion/Hall Thruster)**
-- [ ] **Sims-Flanagan upgrade** — The existing `low_thrust.py` implements basic Sims-Flanagan, but needs: proper thrust constraints (max thrust as function of solar distance for solar-electric), mass depletion tracking, and integration with the MGA framework (low-thrust legs between gravity assists).
+**Electric Propulsion (Ion/Hall Thruster)** — SHIPPED with 2 demo missions + hybrid
+- [x] Basic Sims-Flanagan optimizer extended with high-res trajectory output for visualization
+- [x] Launch/arrival v_inf constraints for realistic hybrid missions
+- [x] 2 designed missions: Low-Thrust Earth→Mars (4.71 km/s, 223 kg Xe), Low-Thrust Earth→Vesta (Dawn-like, 350 kg Xe)
+- [x] Hybrid Mars Capture mission (ion cruise + chemical orbit insertion, total 1.77 km/s chem Δv)
+- [ ] Sims-Flanagan upgrade (originally planned): — The existing `low_thrust.py` implements basic Sims-Flanagan, but needs: proper thrust constraints (max thrust as function of solar distance for solar-electric), mass depletion tracking, and integration with the MGA framework (low-thrust legs between gravity assists).
 - [ ] **Collocation method** — For higher-fidelity trajectories, implement a direct collocation transcription (Hermite-Simpson or Gauss-Lobatto) that converts the continuous optimal control problem into a large NLP. More accurate than Sims-Flanagan but requires an NLP solver (IPOPT via pyomo, or scipy SLSQP).
 - [ ] **Hybrid high-thrust/low-thrust** — Real missions often use chemical burns for orbit insertion and electric propulsion for cruise. Need a framework that chains impulsive and continuous-thrust legs.
 - [ ] **Q-law for planetocentric spirals** — For low-thrust orbit raising/lowering around a planet (e.g., GTO to escape), implement Petropoulos's Q-law feedback controller. This handles the spiral phase that Lambert can't.
 - Parameters: thrust (mN), I_sp (s), power (kW), mass budget (dry + propellant), thrust profile (constant vs solar-distance-dependent).
 
-**Solar Sail**
-- [ ] **Ideal sail model** — Thrust = (2PA/c) * cos²(α) * n̂, where P is solar pressure, A is sail area, α is cone angle, n̂ is sail normal. Thrust magnitude scales as 1/r² (inverse square of Sun distance). Direction is always away from Sun (can't thrust toward Sun).
+**Solar Sail** — SHIPPED with demo mission
+- [x] Ideal sail physics (thrust ∝ cos²(α) × (r₀/r)², always away from Sun)
+- [x] RK4 numerical integrator for continuous-thrust dynamics
+- [x] Locally-optimal control (35.26° cone angle for max tangential thrust)
+- [x] Sundiver control strategy (brake inward, then accelerate outward)
+- [x] 1 designed mission: Solar Sail Interstellar Escape (a_c=3 mm/s², 15.0 km/s asymptotic, zero propellant)
+- [ ] Originally planned extensions: — Thrust = (2PA/c) * cos²(α) * n̂, where P is solar pressure, A is sail area, α is cone angle, n̂ is sail normal. Thrust magnitude scales as 1/r² (inverse square of Sun distance). Direction is always away from Sun (can't thrust toward Sun).
 - [ ] **Trajectory propagation** — Integrate equations of motion with continuous solar radiation pressure. No impulsive approximation possible — every trajectory point depends on sail orientation history.
 - [ ] **Optimal control** — The control variable is sail orientation (cone + clock angles) at each point in time. This is a continuous optimal control problem, solvable by direct collocation or indirect methods (Pontryagin's minimum principle).
 - [ ] **Characteristic acceleration** — The key mission design parameter: a_c = 2PA/(mc) at 1 AU. Typical values: 0.1–1.0 mm/s². Higher a_c = larger/lighter sail = more expensive to build.

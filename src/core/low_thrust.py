@@ -58,7 +58,9 @@ class SimsFlanagan:
 
     def __init__(self, departure_body: str, arrival_body: str,
                  departure_date: str, arrival_date: str,
-                 spacecraft: Spacecraft, n_segments: int = 20):
+                 spacecraft: Spacecraft, n_segments: int = 20,
+                 max_launch_vinf_kms: float = None,
+                 max_arrival_vinf_kms: float = None):
         """
         Args:
             departure_body: e.g., 'earth'
@@ -74,6 +76,8 @@ class SimsFlanagan:
         self.n_seg = n_segments
         self.n_fwd = n_segments // 2
         self.n_bwd = n_segments - self.n_fwd
+        self.max_launch_vinf = max_launch_vinf_kms
+        self.max_arrival_vinf = max_arrival_vinf_kms
 
         # Compute times
         self.et_dep = utc_to_et(departure_date)
@@ -219,6 +223,18 @@ class SimsFlanagan:
         throttles = x[:3 * self.n_seg].reshape(self.n_seg, 3)
         return np.array([1.0 - np.dot(t, t) for t in throttles])
 
+    def _vinf_constraints(self, x: np.ndarray) -> np.ndarray:
+        """Optional: cap launch and/or arrival v_inf. Must be >= 0 when feasible."""
+        _, v_dep, v_arr = self._unpack(x)
+        out = []
+        if self.max_launch_vinf is not None:
+            v_inf_dep = np.linalg.norm(v_dep - self.v_dep_body)
+            out.append(self.max_launch_vinf - v_inf_dep)
+        if self.max_arrival_vinf is not None:
+            v_inf_arr = np.linalg.norm(v_arr - self.v_arr_body)
+            out.append(self.max_arrival_vinf - v_inf_arr)
+        return np.array(out) if out else np.array([1.0])
+
     def optimize(self, max_iter: int = 500) -> Dict:
         """Run the Sims-Flanagan optimization.
 
@@ -233,15 +249,19 @@ class SimsFlanagan:
         # Bounds: throttle components in [-1, 1], velocities free
         bounds = [(-1, 1)] * (3 * self.n_seg) + [(None, None)] * 6
 
+        constraints = [
+            {'type': 'eq', 'fun': self._match_constraints},
+            {'type': 'ineq', 'fun': self._throttle_constraints},
+        ]
+        if self.max_launch_vinf is not None or self.max_arrival_vinf is not None:
+            constraints.append({'type': 'ineq', 'fun': self._vinf_constraints})
+
         result = minimize(
             self._objective,
             x0,
             method='SLSQP',
             bounds=bounds,
-            constraints=[
-                {'type': 'eq', 'fun': self._match_constraints},
-                {'type': 'ineq', 'fun': self._throttle_constraints},
-            ],
+            constraints=constraints,
             options={'maxiter': max_iter, 'ftol': 1e-8, 'disp': False},
         )
 
@@ -300,6 +320,8 @@ class SimsFlanagan:
             'arrival_utc': et_to_utc(self.et_arr),
             'tof_days': self.tof / 86400,
             'n_segments': self.n_seg,
+            'v_dep_vec': v_dep.tolist(),
+            'v_arr_vec': v_arr.tolist(),
             'propulsion': {
                 'type': 'low-thrust',
                 'thrust_n': self.sc.thrust * 1e3,

@@ -110,6 +110,21 @@ _SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
     },
 }
 
+# Solar sail missions (no propellant, continuous radiation-pressure thrust)
+_SOLAR_SAIL_MISSIONS: Dict[str, Dict] = {
+    'sail-interstellar': {
+        'name': 'Solar Sail: Interstellar Escape',
+        'description': 'Advanced solar sail (a_c = 3 mm/s² at 1 AU — future-tech but plausible) '
+                       'escapes the solar system in 6 months with zero propellant. Reaches 15.5 km/s '
+                       'asymptotic (3.3 AU/yr) — Voyager 1-class interstellar cruise with no fuel tank.',
+        'type': 'escape',
+        'dep_date': '2028-01-01',
+        'ac_ms2': 3e-3,
+        'duration_years': 15.0,
+    },
+}
+
+
 # Interstellar precursor missions (escape trajectory, maximize v_inf)
 _INTERSTELLAR_MISSIONS: Dict[str, Dict] = {
     'interstellar-vej': {
@@ -142,6 +157,26 @@ _MULTI_NEA_MISSIONS: Dict[str, Dict] = {
 
 def get_designed_mission(mission_id: str) -> Dict:
     """Get a designed mission trajectory, propagated from stored x*."""
+    # Low-thrust (electric propulsion) missions
+    from src.core.low_thrust_missions import LOW_THRUST_MISSIONS, get_low_thrust_mission
+    if mission_id in LOW_THRUST_MISSIONS:
+        return get_low_thrust_mission(mission_id)
+
+    # Hybrid chemical + electric missions
+    from src.core.hybrid_propulsion import HYBRID_MISSIONS, get_hybrid_mission
+    if mission_id in HYBRID_MISSIONS:
+        return get_hybrid_mission(mission_id)
+
+    # Solar sail
+    if mission_id in _SOLAR_SAIL_MISSIONS:
+        from src.core.solar_sail import propagate_solar_sail_escape_mission
+        spec = _SOLAR_SAIL_MISSIONS[mission_id]
+        result = propagate_solar_sail_escape_mission(
+            spec['dep_date'], spec['ac_ms2'], duration_years=spec['duration_years'])
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
     # Interstellar precursor
     if mission_id in _INTERSTELLAR_MISSIONS:
         from src.core.interstellar import propagate_interstellar_mission
