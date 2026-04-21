@@ -15,37 +15,122 @@ function addDaysStr(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const REF_MISSIONS = [
-  { id: 'voyager', label: 'Voyager 2', sub: 'E→J→S→U→N' },
-  { id: 'cassini', label: 'Cassini', sub: 'E→V→V→E→J→S' },
-  { id: 'new horizons', label: 'New Horizons', sub: 'E→J→Pluto' },
-  { id: 'galileo', label: 'Galileo', sub: 'E→V→E→E→J' },
-  { id: 'mariner', label: 'Mariner 10', sub: 'E→V→Mercury' },
-  { id: 'juno', label: 'Juno', sub: 'E→E→J' },
-  { id: 'pioneer', label: 'Pioneer 10', sub: 'E→J' },
-  { id: 'messenger', label: 'MESSENGER', sub: 'E→E→V→V→M→M→M→M' },
+// --- Mission library ---
+
+type MissionCategory = 'historic' | 'benchmark' | 'designed';
+type PropulsionType = 'chemical' | 'ion' | 'sail' | 'hybrid';
+
+interface LibraryMission {
+  id: string;
+  label: string;
+  sub: string;
+  detail?: string;
+  category: MissionCategory;
+  propulsion: PropulsionType;
+}
+
+const MISSIONS: LibraryMission[] = [
+  // Historic — chemical
+  { id: 'voyager', label: 'Voyager 2', sub: 'E→J→S→U→N', detail: '1977-1989 · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'cassini', label: 'Cassini', sub: 'E→V→V→E→J→S', detail: '1997-2017 · NASA/ESA', category: 'historic', propulsion: 'chemical' },
+  { id: 'new horizons', label: 'New Horizons', sub: 'E→J→Pluto', detail: '2006-2015 · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'galileo', label: 'Galileo', sub: 'E→V→E→E→J', detail: '1989-2003 · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'mariner', label: 'Mariner 10', sub: 'E→V→Mercury', detail: '1973-1975 · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'juno', label: 'Juno', sub: 'E→E→J', detail: '2011– · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'pioneer', label: 'Pioneer 10', sub: 'E→J', detail: '1972-2003 · NASA', category: 'historic', propulsion: 'chemical' },
+  { id: 'messenger', label: 'MESSENGER', sub: 'E→E→V→V→M×4', detail: '2004-2015 · NASA', category: 'historic', propulsion: 'chemical' },
+  // Historic — ion / sail / hybrid
+  { id: 'dawn', label: 'Dawn', sub: 'E→Ma→Vesta→Ceres', detail: '2007-2018 · NASA', category: 'historic', propulsion: 'ion' },
+  { id: 'hayabusa2', label: 'Hayabusa2', sub: 'E→Ryugu→E', detail: '2014-2020 · JAXA', category: 'historic', propulsion: 'ion' },
+  { id: 'hayabusa', label: 'Hayabusa', sub: 'E→Itokawa→E', detail: '2003-2010 · JAXA', category: 'historic', propulsion: 'ion' },
+  { id: 'psyche', label: 'Psyche', sub: 'E→Ma→Psyche', detail: '2023-2029 · NASA', category: 'historic', propulsion: 'ion' },
+  { id: 'bepicolombo', label: 'BepiColombo', sub: '9 GAs → Mercury', detail: '2018-2025 · ESA/JAXA', category: 'historic', propulsion: 'hybrid' },
+  { id: 'ikaros', label: 'IKAROS', sub: 'E→Venus', detail: '2010 · JAXA', category: 'historic', propulsion: 'sail' },
+  // Benchmark — GTOP
+  { id: 'cassini2', label: 'Cassini2', sub: 'E→V→V→E→J→S', detail: 'Best: 8.383 km/s', category: 'benchmark', propulsion: 'chemical' },
+  { id: 'messenger', label: 'Messenger', sub: 'E→E→V→V→Me', detail: 'Best: 8.630 km/s', category: 'benchmark', propulsion: 'chemical' },
+  { id: 'rosetta', label: 'Rosetta', sub: 'E→E→Ma→E→E→67P', detail: 'Best: 1.343 km/s', category: 'benchmark', propulsion: 'chemical' },
+  // Designed — chemical
+  { id: 'grand-tour-eejs', label: 'Grand Tour: EEJS', sub: 'E→E→J→S', detail: '8.80 km/s · 13.4yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'grand-tour-vejs', label: 'Grand Tour: VEJS', sub: 'E→V→E→J→S', detail: '9.04 km/s · 12.2yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'fast-jupiter-vej', label: 'Jupiter: VEJ', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'jupiter-emaj', label: 'Jupiter: EMaJ', sub: 'E→E→Ma→J', detail: '10.07 km/s · 6.0yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'jupiter-maej', label: 'Jupiter: MaEJ', sub: 'E→Ma→E→J', detail: '10.66 km/s · 6.5yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'sample-return-sg344', label: 'Sample Return: SG344', sub: 'E→SG344→E', detail: '1.83 km/s · 2.1yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'sample-return-hu4', label: 'Sample Return: HU4', sub: 'E→HU4→E', detail: '3.92 km/s · 1.9yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'sample-return-ao10', label: 'Sample Return: AO10', sub: 'E→AO10→E', detail: '5.91 km/s · 1.6yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'interstellar-vej', label: 'Interstellar: VEJ', sub: 'E→V→E→J→∞', detail: '7.40 AU/yr · 200 AU/27yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'tour-sg344-rh120', label: 'Tour: SG344→RH120', sub: 'E→SG344→RH120→E', detail: '3.71 km/s · 2.5yr', category: 'designed', propulsion: 'chemical' },
+  { id: 'halley-2061-flyby', label: "Halley's Comet Flyby 2061", sub: 'Retrograde flyby', detail: '47.7 km/s · 1.7yr', category: 'designed', propulsion: 'chemical' },
+  // Designed — ion
+  { id: 'lt-earth-mars', label: 'Low-Thrust: Earth→Mars', sub: 'Ion, E→Mars', detail: '223 kg Xe · 400d · 4.71 km/s', category: 'designed', propulsion: 'ion' },
+  { id: 'lt-earth-vesta', label: 'Low-Thrust: Earth→Vesta', sub: 'Ion, Dawn-like', detail: '350 kg Xe · 1300d · 9.18 km/s', category: 'designed', propulsion: 'ion' },
+  { id: 'lt-apophis', label: 'Low-Thrust: Apophis Rendezvous', sub: 'Ion, pre-2029 flyby', detail: '265 kg Xe · arrive Jan 2029', category: 'designed', propulsion: 'ion' },
+  { id: 'lt-chiron', label: 'Low-Thrust: Chiron Orbiter', sub: 'First Centaur orbiter', detail: '12.3yr · 1200 kg Xe · 14 AU', category: 'designed', propulsion: 'ion' },
+  { id: 'lt-sr-bennu', label: 'Low-Thrust Sample Return: Bennu', sub: 'Ion OSIRIS-REx', detail: '3.8yr · 400 kg Xe', category: 'designed', propulsion: 'ion' },
+  // Designed — sail
+  { id: 'sail-interstellar', label: 'Solar Sail: Interstellar', sub: 'Zero propellant', detail: '15.5 km/s · 3.3 AU/yr', category: 'designed', propulsion: 'sail' },
+  { id: 'sail-polar-observer', label: 'Solar Sail: Polar Observer', sub: 'Crank inclination', detail: '6yr · 134° · no fuel', category: 'designed', propulsion: 'sail' },
+  // Designed — hybrid
+  { id: 'hybrid-mars-capture', label: 'Hybrid: Mars Capture', sub: 'Ion + chemical OI', detail: '1.77 km/s chem Δv', category: 'designed', propulsion: 'hybrid' },
+  { id: 'hybrid-saturn', label: 'Hybrid: Saturn', sub: 'Cassini-class', detail: '7.7yr · 1200 kg Xe', category: 'designed', propulsion: 'hybrid' },
+  { id: 'hybrid-pluto', label: 'Hybrid: Pluto Orbiter', sub: 'Faster NH + orbit', detail: '12yr · 1500 kg Xe', category: 'designed', propulsion: 'hybrid' },
+  { id: 'hybrid-triton', label: 'Hybrid: Neptune/Triton', sub: 'Reach mission', detail: '15yr · 30 AU · post-V2', category: 'designed', propulsion: 'hybrid' },
 ];
 
-const HISTORICAL_EP_MISSIONS = [
-  { id: 'dawn', label: 'Dawn', sub: 'E→M→Vesta→Ceres · Ion', detail: '2007-2018 · NASA' },
-  { id: 'hayabusa2', label: 'Hayabusa2', sub: 'E→Ryugu→E · Ion sample return', detail: '2014-2020 · JAXA' },
-  { id: 'hayabusa', label: 'Hayabusa', sub: 'E→Itokawa→E · Ion sample return', detail: '2003-2010 · JAXA' },
-  { id: 'bepicolombo', label: 'BepiColombo', sub: '9 GAs → Mercury · Hybrid', detail: '2018-2025 · ESA/JAXA' },
-  { id: 'psyche', label: 'Psyche', sub: 'E→M→Psyche · Ion (Hall)', detail: '2023-2029 · NASA' },
-  { id: 'ikaros', label: 'IKAROS', sub: 'E→Venus · Solar sail', detail: '2010 · JAXA' },
-];
+const CATEGORY_META: Record<MissionCategory, { label: string; accent: string; verb: string; hint: string }> = {
+  historic: { label: 'Historic', accent: 'var(--amber)', verb: 'Building', hint: 'Missions that actually flew' },
+  benchmark: { label: 'Benchmark', accent: 'var(--green)', verb: 'Optimizing', hint: 'ESA GTOP problems (~30–60s)' },
+  designed: { label: 'Designed', accent: '#8b5cf6', verb: 'Loading', hint: 'Novel trajectories from I.C.A.R.U.S.' },
+};
+
+const PROPULSION_META: Record<PropulsionType, { label: string; accent: string }> = {
+  chemical: { label: 'Chemical', accent: '#f59e0b' },
+  ion: { label: 'Ion', accent: '#3b82f6' },
+  sail: { label: 'Sail', accent: '#10b981' },
+  hybrid: { label: 'Hybrid', accent: '#a855f7' },
+};
+
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '3px 9px',
+    background: active ? 'var(--text-secondary)' : 'transparent',
+    color: active ? 'var(--bg)' : 'var(--text-dim)',
+    border: '1px solid var(--panel-border)',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '9px',
+    letterSpacing: '0.3px',
+    fontWeight: active ? 600 : 400,
+  };
+}
 
 export function Sidebar() {
   const s = useStore();
-  const [refLoading, setRefLoading] = useState<string | null>(null);
-  const [gtopLoading, setGtopLoading] = useState<string | null>(null);
-  const [designedLoading, setDesignedLoading] = useState<string | null>(null);
-  const [histEpLoading, setHistEpLoading] = useState<string | null>(null);
   const [windowsExpanded, setWindowsExpanded] = useState(false);
-  const [refExpanded, setRefExpanded] = useState(false);
-  const [gtopExpanded, setGtopExpanded] = useState(false);
-  const [designedExpanded, setDesignedExpanded] = useState(false);
-  const [histEpExpanded, setHistEpExpanded] = useState(false);
+
+  // Mission Library state (unified — replaces the four per-category sections)
+  const [libExpanded, setLibExpanded] = useState(false);
+  const [libCategory, setLibCategory] = useState<MissionCategory>('designed');
+  const [libPropulsion, setLibPropulsion] = useState<PropulsionType | 'all'>('all');
+  const [missionLoading, setMissionLoading] = useState<string | null>(null);
+
+  const filteredMissions = useMemo(() => MISSIONS.filter(
+    m => m.category === libCategory && (libPropulsion === 'all' || m.propulsion === libPropulsion)
+  ), [libCategory, libPropulsion]);
+
+  const availablePropulsions = useMemo(() => {
+    const types = new Set<PropulsionType>();
+    MISSIONS.forEach(m => { if (m.category === libCategory) types.add(m.propulsion); });
+    return Array.from(types);
+  }, [libCategory]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<MissionCategory, number> = { historic: 0, benchmark: 0, designed: 0 };
+    MISSIONS.forEach(m => { counts[m.category]++; });
+    return counts;
+  }, []);
 
   const applyWindow = (from: string, to: string) => {
     const state = useStore.getState();
@@ -149,17 +234,63 @@ export function Sidebar() {
     finally { s.setTargetsLoading(false); }
   };
 
+  const loadMission = async (m: LibraryMission) => {
+    const key = `${m.category}:${m.id}`;
+    setMissionLoading(key);
+    try {
+      const mission =
+        m.category === 'historic' ? await getReferenceMission(m.id)
+        : m.category === 'benchmark' ? await getGTOPBenchmark(m.id)
+        : await getDesignedMission(m.id);
+      const launchDate = mission.events[0]?.date || '';
+      const approx = allPlanetPositionsAtDate(launchDate);
+      const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
+        name, position, velocity: [0, 0, 0] as [number, number, number],
+        distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
+        speed_kms: 0,
+      }));
+      useStore.setState({
+        planets: approxPlanets,
+        transfer: {
+          departure_body: mission.sequence[0],
+          arrival_body: mission.sequence[mission.sequence.length - 1],
+          departure_utc: launchDate,
+          arrival_utc: mission.events[mission.events.length - 1]?.date || '',
+          tof_days: 0,
+          dv_departure: 0, dv_arrival: 0, dv_total: (mission as { stats?: { total_dv_km_s?: number } }).stats?.total_dv_km_s || 0,
+          c3_launch: 0, v_inf_arrival: 0,
+          trajectory_positions: mission.trajectory_positions,
+        },
+        referenceMission: mission,
+        viewMode: 'solar-system',
+        animationProgress: 0,
+        animationPlaying: false,
+        epoch: launchDate,
+      });
+      getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
+      for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
+        'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
+        getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
+      }
+    } catch (e) { s.setError(String(e)); }
+    finally { setMissionLoading(null); }
+  };
+
   return (
     <div className="sidebar">
-      {/* Epoch */}
-      <div className="panel">
-        <div className="panel-header"><div className="panel-header-dot" />Epoch</div>
-        <div className="row">
-          <input type="date" value={s.epoch} onChange={(e) => s.setEpoch(e.target.value)} className="input flex-1" />
-          <button onClick={loadPlanets} className="btn btn-sm btn-ghost">
-            {s.planets.length > 0 ? 'Reload' : 'Load'}
-          </button>
-        </div>
+      {/* Epoch — inline one-line */}
+      <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="panel-header-dot" />
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+          letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
+        }}>
+          Epoch
+        </span>
+        <input type="date" value={s.epoch} onChange={(e) => s.setEpoch(e.target.value)} className="input flex-1" />
+        <button onClick={loadPlanets} className="btn btn-sm btn-ghost">
+          {s.planets.length > 0 ? 'Reload' : 'Load'}
+        </button>
       </div>
 
       {/* Transfer configuration */}
@@ -365,392 +496,126 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Reference Missions — collapsible */}
+      {/* Mission Library — unified Historic / Benchmark / Designed with propulsion filter */}
       <div className="panel">
         <button
-          onClick={() => setRefExpanded(!refExpanded)}
+          onClick={() => setLibExpanded(!libExpanded)}
           style={{
             display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
             background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            marginBottom: refExpanded ? '10px' : 0,
+            marginBottom: libExpanded ? '10px' : 0,
           }}
         >
-          <div className="panel-header-dot" style={{ background: 'var(--amber)' }} />
+          <div className="panel-header-dot" style={{ background: CATEGORY_META[libCategory].accent }} />
           <span style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
             letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
           }}>
-            Reference Missions
+            Mission Library
           </span>
           <span style={{
-            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
-            transform: refExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
-          }}>▶</span>
-        </button>
-        {refExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {REF_MISSIONS.map(m => (
-              <button
-                key={m.id}
-                disabled={refLoading === m.id}
-                onClick={async () => {
-                  setRefLoading(m.id);
-                  try {
-                    const mission = await getReferenceMission(m.id);
-                    const launchDate = mission.events[0]?.date || '';
-                    // Immediately set approximate planet positions for the mission epoch
-                    const approx = allPlanetPositionsAtDate(launchDate);
-                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
-                      name, position, velocity: [0, 0, 0] as [number, number, number],
-                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
-                      speed_kms: 0,
-                    }));
-                    const stateUpdate: Record<string, any> = {
-                      planets: approxPlanets,
-                      transfer: {
-                        departure_body: mission.sequence[0],
-                        arrival_body: mission.sequence[mission.sequence.length - 1],
-                        departure_utc: launchDate,
-                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
-                        tof_days: 0,
-                        dv_departure: 0, dv_arrival: 0, dv_total: 0,
-                        c3_launch: 0, v_inf_arrival: 0,
-                        trajectory_positions: mission.trajectory_positions,
-                      },
-                      referenceMission: mission,
-                      viewMode: 'solar-system',
-                      animationProgress: 0,
-                      animationPlaying: false,
-                      epoch: launchDate,
-                    };
-                    useStore.setState(stateUpdate);
-                    // Refine with precise positions from API (non-blocking)
-                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
-                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
-                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
-                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
-                    }
-                  } catch (e) { s.setError(String(e)); }
-                  finally { setRefLoading(null); }
-                }}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
-                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                  {refLoading === m.id ? 'Loading...' : m.label}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
-                  {m.sub}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Historical Electric Propulsion Missions — collapsible */}
-      <div className="panel">
-        <button
-          onClick={() => setHistEpExpanded(!histEpExpanded)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            marginBottom: histEpExpanded ? '10px' : 0,
-          }}
-        >
-          <div className="panel-header-dot" style={{ background: '#00d4e0' }} />
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
-            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
+            marginLeft: 'auto',
+            fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)',
           }}>
-            Ion / Sail Reference Missions
+            {filteredMissions.length}
           </span>
           <span style={{
-            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
-            transform: histEpExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
+            fontSize: '8px', color: 'var(--text-dim)', marginLeft: '6px',
+            transform: libExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
           }}>▶</span>
         </button>
-        {histEpExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
-              Historical missions with electric, hybrid, or sail propulsion (first click ~30-120s)
+        {libExpanded && (
+          <>
+            {/* Category tabs */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+              {(Object.keys(CATEGORY_META) as MissionCategory[]).map(c => (
+                <button
+                  key={c}
+                  onClick={() => { setLibCategory(c); setLibPropulsion('all'); }}
+                  style={{
+                    flex: 1,
+                    padding: '5px 6px',
+                    background: libCategory === c ? CATEGORY_META[c].accent : 'var(--void)',
+                    color: libCategory === c ? '#000' : 'var(--text-secondary)',
+                    border: '1px solid var(--panel-border)',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '9px',
+                    fontWeight: libCategory === c ? 700 : 400,
+                    letterSpacing: '0.5px',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {CATEGORY_META[c].label}
+                  <span style={{ marginLeft: '4px', opacity: 0.7 }}>{categoryCounts[c]}</span>
+                </button>
+              ))}
             </div>
-            {HISTORICAL_EP_MISSIONS.map(m => (
-              <button
-                key={m.id}
-                disabled={histEpLoading !== null}
-                onClick={async () => {
-                  setHistEpLoading(m.id);
-                  try {
-                    const mission = await getReferenceMission(m.id);
-                    const launchDate = mission.events[0]?.date || '';
-                    const approx = allPlanetPositionsAtDate(launchDate);
-                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
-                      name, position, velocity: [0, 0, 0] as [number, number, number],
-                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
-                      speed_kms: 0,
-                    }));
-                    useStore.setState({
-                      planets: approxPlanets,
-                      transfer: {
-                        departure_body: mission.sequence[0],
-                        arrival_body: mission.sequence[mission.sequence.length - 1],
-                        departure_utc: launchDate,
-                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
-                        tof_days: 0,
-                        dv_departure: 0, dv_arrival: 0, dv_total: 0,
-                        c3_launch: 0, v_inf_arrival: 0,
-                        trajectory_positions: mission.trajectory_positions,
-                      },
-                      referenceMission: mission,
-                      viewMode: 'solar-system',
-                      animationProgress: 0,
-                      animationPlaying: false,
-                      epoch: launchDate,
-                    });
-                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
-                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
-                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
-                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
-                    }
-                  } catch (e) { s.setError(String(e)); }
-                  finally { setHistEpLoading(null); }
-                }}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
-                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
-                  opacity: histEpLoading && histEpLoading !== m.id ? 0.5 : 1,
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                    {histEpLoading === m.id ? <AnimatedDots text="Building" /> : m.label}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
-                    {m.detail}
-                  </span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
-                  {m.sub}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* GTOP Benchmarks — collapsible */}
-      <div className="panel">
-        <button
-          onClick={() => setGtopExpanded(!gtopExpanded)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            marginBottom: gtopExpanded ? '10px' : 0,
-          }}
-        >
-          <div className="panel-header-dot" style={{ background: 'var(--green)' }} />
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
-            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
-          }}>
-            GTOP Benchmarks
-          </span>
-          <span style={{
-            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
-            transform: gtopExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
-          }}>▶</span>
-        </button>
-        {gtopExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
-              Optimized trajectories computed on-demand (~30-60s)
+            {/* Category hint */}
+            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
+              {CATEGORY_META[libCategory].hint}
             </div>
-            {[
-              { id: 'cassini2', label: 'Cassini2', sub: 'E→V→V→E→J→S', pub: '8.383' },
-              { id: 'messenger', label: 'Messenger', sub: 'E→E→V→V→Me', pub: '8.630' },
-              { id: 'rosetta', label: 'Rosetta', sub: 'E→E→Ma→E→E→67P', pub: '1.343' },
-            ].map(m => (
-              <button
-                key={m.id}
-                disabled={gtopLoading !== null}
-                onClick={async () => {
-                  setGtopLoading(m.id);
-                  try {
-                    const mission = await getGTOPBenchmark(m.id);
-                    const launchDate = mission.events[0]?.date || '';
-                    const approx = allPlanetPositionsAtDate(launchDate);
-                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
-                      name, position, velocity: [0, 0, 0] as [number, number, number],
-                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
-                      speed_kms: 0,
-                    }));
-                    useStore.setState({
-                      planets: approxPlanets,
-                      transfer: {
-                        departure_body: mission.sequence[0],
-                        arrival_body: mission.sequence[mission.sequence.length - 1],
-                        departure_utc: launchDate,
-                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
-                        tof_days: 0,
-                        dv_departure: 0, dv_arrival: 0, dv_total: mission.stats?.total_dv_km_s || 0,
-                        c3_launch: 0, v_inf_arrival: 0,
-                        trajectory_positions: mission.trajectory_positions,
-                      },
-                      referenceMission: mission,
-                      viewMode: 'solar-system',
-                      animationProgress: 0,
-                      animationPlaying: false,
-                      epoch: launchDate,
-                    });
-                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
-                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
-                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
-                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
-                    }
-                  } catch (e) { s.setError(String(e)); }
-                  finally { setGtopLoading(null); }
-                }}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
-                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
-                  opacity: gtopLoading && gtopLoading !== m.id ? 0.5 : 1,
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                    {gtopLoading === m.id ? <AnimatedDots text="Optimizing" /> : m.label}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
-                    Best: {m.pub} km/s
-                  </span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
-                  {m.sub}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Designed Missions — collapsible */}
-      <div className="panel">
-        <button
-          onClick={() => setDesignedExpanded(!designedExpanded)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
-            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-            marginBottom: designedExpanded ? '10px' : 0,
-          }}
-        >
-          <div className="panel-header-dot" style={{ background: '#8b5cf6' }} />
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
-            letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--text-dim)',
-          }}>
-            Designed Missions
-          </span>
-          <span style={{
-            marginLeft: 'auto', fontSize: '8px', color: 'var(--text-dim)',
-            transform: designedExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s',
-          }}>▶</span>
-        </button>
-        {designedExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
-              Novel trajectories optimized by I.C.A.R.U.S.
-            </div>
-            {[
-              { id: 'grand-tour-eejs', label: 'Grand Tour: EEJS', sub: 'E→E→J→S', detail: '8.80 km/s · 13.4yr' },
-              { id: 'grand-tour-vejs', label: 'Grand Tour: VEJS', sub: 'E→V→E→J→S', detail: '9.04 km/s · 12.2yr' },
-              { id: 'fast-jupiter-vej', label: 'Jupiter: VEJ', sub: 'E→V→E→J', detail: '10.18 km/s · 4.6yr' },
-              { id: 'jupiter-emaj', label: 'Jupiter: EMaJ', sub: 'E→E→Ma→J', detail: '10.07 km/s · 6.0yr' },
-              { id: 'jupiter-maej', label: 'Jupiter: MaEJ', sub: 'E→Ma→E→J', detail: '10.66 km/s · 6.5yr' },
-              { id: 'sample-return-sg344', label: 'Sample Return: SG344', sub: 'E→2000 SG344→E', detail: '1.83 km/s · 2.1yr' },
-              { id: 'sample-return-hu4', label: 'Sample Return: HU4', sub: 'E→2008 HU4→E', detail: '3.92 km/s · 1.9yr' },
-              { id: 'sample-return-ao10', label: 'Sample Return: AO10', sub: 'E→1999 AO10→E', detail: '5.91 km/s · 1.6yr' },
-              { id: 'interstellar-vej', label: 'Interstellar: VEJ', sub: 'E→V→E→J→∞', detail: '7.40 AU/yr · 200AU in 27yr' },
-              { id: 'tour-sg344-rh120', label: 'Tour: SG344→RH120', sub: 'E→SG344→RH120→E', detail: '3.71 km/s · 2.5yr' },
-              { id: 'lt-earth-mars', label: 'Low-Thrust: Earth→Mars', sub: 'Ion, E→Mars', detail: '223 kg Xe · 400d · 4.71 km/s' },
-              { id: 'lt-earth-vesta', label: 'Low-Thrust: Earth→Vesta', sub: 'Ion, Dawn-like', detail: '350 kg Xe · 1300d · 9.18 km/s' },
-              { id: 'lt-apophis', label: 'Low-Thrust: Apophis Rendezvous', sub: 'Ion, pre-2029 flyby', detail: 'Ion cruise · arrive Jan 2029' },
-              { id: 'lt-chiron', label: 'Low-Thrust: Chiron Orbiter', sub: 'Ion, first Centaur orbiter', detail: '12.3yr · 1200 kg Xe · 14 AU' },
-              { id: 'halley-2061-flyby', label: "Halley's Comet Flyby 2061", sub: 'Chemical, retrograde flyby', detail: '47.7 km/s encounter · 1.7yr' },
-              { id: 'sail-interstellar', label: 'Solar Sail: Interstellar', sub: 'Zero propellant', detail: '15.5 km/s · 3.3 AU/yr' },
-              { id: 'sail-polar-observer', label: 'Solar Sail: Polar Observer', sub: 'Crank inclination, no fuel', detail: '6yr · view solar poles' },
-              { id: 'hybrid-mars-capture', label: 'Hybrid: Mars Capture', sub: 'Ion + Chemical orbit insertion', detail: 'Ion cruise + chem capture' },
-              { id: 'hybrid-saturn', label: 'Hybrid: Saturn', sub: 'Cassini-class hybrid', detail: '7.7yr · 1200 kg Xe' },
-              { id: 'hybrid-pluto', label: 'Hybrid: Pluto Orbiter', sub: 'Faster NH, with orbit', detail: '12yr · 1500 kg Xe' },
-              { id: 'hybrid-triton', label: 'Hybrid: Neptune/Triton', sub: 'Hybrid, reach mission', detail: '15yr · 30 AU · post-Voyager 2' },
-              { id: 'lt-sr-bennu', label: 'Low-Thrust Sample Return: Bennu', sub: 'Ion OSIRIS-REx', detail: '3.8yr · 400 kg Xe (vs 93% chem)' },
-            ].map(m => (
-              <button
-                key={m.id}
-                disabled={designedLoading !== null}
-                onClick={async () => {
-                  setDesignedLoading(m.id);
-                  try {
-                    const mission = await getDesignedMission(m.id);
-                    const launchDate = mission.events[0]?.date || '';
-                    const approx = allPlanetPositionsAtDate(launchDate);
-                    const approxPlanets: PlanetState[] = Object.entries(approx).map(([name, position]) => ({
-                      name, position, velocity: [0, 0, 0] as [number, number, number],
-                      distance_au: Math.sqrt(position[0] ** 2 + position[1] ** 2 + position[2] ** 2) / 1.496e8,
-                      speed_kms: 0,
-                    }));
-                    useStore.setState({
-                      planets: approxPlanets,
-                      transfer: {
-                        departure_body: mission.sequence[0],
-                        arrival_body: mission.sequence[mission.sequence.length - 1],
-                        departure_utc: launchDate,
-                        arrival_utc: mission.events[mission.events.length - 1]?.date || '',
-                        tof_days: 0,
-                        dv_departure: 0, dv_arrival: 0, dv_total: mission.stats?.total_dv_km_s || 0,
-                        c3_launch: 0, v_inf_arrival: 0,
-                        trajectory_positions: mission.trajectory_positions,
-                      },
-                      referenceMission: mission,
-                      viewMode: 'solar-system',
-                      animationProgress: 0,
-                      animationPlaying: false,
-                      epoch: launchDate,
-                    });
-                    getPlanets(launchDate).then(p => s.setPlanets(p)).catch(() => {});
-                    for (const body of ['mercury', 'venus', 'earth', 'mars', 'ceres', 'vesta',
-                      'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'eris', 'haumea', 'makemake']) {
-                      getOrbit(body, launchDate).then(orbit => s.setOrbit(body, orbit)).catch(() => {});
-                    }
-                  } catch (e) { s.setError(String(e)); }
-                  finally { setDesignedLoading(null); }
-                }}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
-                  borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
-                  opacity: designedLoading && designedLoading !== m.id ? 0.5 : 1,
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
-                    {designedLoading === m.id ? <AnimatedDots text="Loading" /> : m.label}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
-                    {m.detail}
-                  </span>
+            {/* Propulsion chips — only show if more than one type in current category */}
+            {availablePropulsions.length > 1 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                <button onClick={() => setLibPropulsion('all')} style={chipStyle(libPropulsion === 'all')}>
+                  All
+                </button>
+                {availablePropulsions.map(p => (
+                  <button key={p} onClick={() => setLibPropulsion(p)} style={chipStyle(libPropulsion === p)}>
+                    {PROPULSION_META[p].label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Mission list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {filteredMissions.length === 0 ? (
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontStyle: 'italic', padding: '8px' }}>
+                  No missions match filter.
                 </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
-                  {m.sub}
-                </span>
-              </button>
-            ))}
-          </div>
+              ) : filteredMissions.map(m => {
+                const key = `${m.category}:${m.id}`;
+                const isLoading = missionLoading === key;
+                return (
+                  <button
+                    key={key}
+                    disabled={missionLoading !== null}
+                    onClick={() => loadMission(m)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 10px', background: 'var(--void)', border: '1px solid var(--panel-border)',
+                      borderLeft: `3px solid ${PROPULSION_META[m.propulsion].accent}`,
+                      borderRadius: '3px', cursor: 'pointer', textAlign: 'left',
+                      opacity: missionLoading && !isLoading ? 0.5 : 1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-primary)' }}>
+                        {isLoading ? <AnimatedDots text={CATEGORY_META[m.category].verb} /> : m.label}
+                      </span>
+                      {m.detail && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-dim)' }}>
+                          {m.detail}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-dim)',
+                      letterSpacing: '0.3px', textAlign: 'right', marginLeft: '8px',
+                      maxWidth: '38%',
+                    }}>
+                      {m.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
