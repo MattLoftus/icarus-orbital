@@ -204,13 +204,13 @@ _SOLAR_SAIL_MISSIONS: Dict[str, Dict] = {
                        'heliocentric orbit to image the Sun\'s poles (invisible from the ecliptic). '
                        'Chemical propulsion has never been able to afford the ~30 km/s Δv required to '
                        'flip out of the ecliptic plane. A solar sail cranks inclination for free. '
-                       'With a_c = 3 mm/s² over 6 years, the sailcraft spirals inward and accumulates '
-                       'out-of-plane thrust to reach a near-retrograde heliocentric orbit — the first '
-                       'ever direct view of the solar poles at high cadence.',
+                       'With a_c = 3 mm/s² the sailcraft spirals inward, cranks to ~88° inclination in '
+                       'under a year, and then brakes into a bound polar orbit at ~0.7 AU — giving '
+                       'years of continuous coverage of both solar poles.',
         'type': 'polar_observer',
         'dep_date': '2028-01-01',
         'ac_ms2': 3e-3,
-        'duration_years': 6.0,
+        'duration_years': 5.0,
     },
 }
 

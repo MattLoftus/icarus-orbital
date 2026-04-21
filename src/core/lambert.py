@@ -110,7 +110,8 @@ def solve_lambert(r1: np.ndarray, r2: np.ndarray, tof: float, mu: float,
     psi_up = 4 * np.pi**2
     psi = 0.0
 
-    for iteration in range(60):
+    tof_tol = max(1e-8, tof * 1e-11)   # relative tolerance for long-TOF convergence
+    for iteration in range(200):
         c2 = _stumpff_c2(psi)
         c3 = _stumpff_c3(psi)
 
@@ -127,7 +128,7 @@ def solve_lambert(r1: np.ndarray, r2: np.ndarray, tof: float, mu: float,
         chi = np.sqrt(y / c2)
         tof_current = (chi**3 * c3 + A * np.sqrt(y)) / np.sqrt(mu)
 
-        if abs(tof_current - tof) < 1e-8:
+        if abs(tof_current - tof) < tof_tol:
             break
 
         # Newton-Raphson update

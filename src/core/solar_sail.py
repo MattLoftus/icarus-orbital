@@ -291,14 +291,18 @@ def solar_sail_escape(dep_date: str, ac_ms2: float,
 
 def solar_polar_observer(dep_date: str, ac_ms2: float,
                           duration_years: float = 8.0,
-                          n_steps: int = 6000) -> Dict:
+                          n_steps: int = 6000,
+                          target_inclination_deg: float = 88.0) -> Dict:
     """Solar sail mission to crank heliocentric inclination.
 
-    Strategy: continuous out-of-plane thrust (perpendicular to orbital plane),
-    alternating direction each half-orbit to accumulate inclination change.
-    Near-Sun orbit at 0.5 AU is efficient since thrust scales as 1/r².
-
-    Typical advanced sail (a_c ~ 2 mm/s²) can reach 75° inclination in ~7-8 years.
+    Three phases:
+      1. Spiral inward from Earth's orbit to ~0.5 AU (sail thrust opposite velocity).
+      2. Crank inclination via sign-alternating out-of-plane thrust.
+      3. Stop cranking once inclination reaches the target and coast in the
+         established polar orbit for the remainder of the mission. Without this
+         cutoff the simple "flip at z=0" controller overshoots past 90° into
+         retrograde territory and then drives the inclination back down, which
+         produces the chaotic tumbling visual.
     """
     base = datetime(2000, 1, 1)
     dep = datetime.fromisoformat(dep_date)
@@ -318,16 +322,20 @@ def solar_polar_observer(dep_date: str, ac_ms2: float,
     positions_km = [r0_km.tolist()]
     inclinations = []
 
-    # Phase 1: spiral inward to ~0.5 AU for efficient inclination cranking
-    # Phase 2: crank inclination
-    # Use distance threshold to switch phases.
     target_r_for_cranking_au = 0.5
+    # Target orbit energy for the polar coast: a bound orbit around a ≈ 0.7 AU
+    target_a_au = 0.7
+    target_a_m = target_a_au * _AU_M
+    target_energy_per_kg = -_MU_SUN_M3S2 / (2 * target_a_m)
+    crank_done = False
+    braking_done = False
+    crank_done_year = None
 
     for i in range(n_steps):
         r_mag = np.linalg.norm(state[:3])
         r_au = r_mag / _AU_M
 
-        # Compute current inclination from state
+        # Current inclination from h = r × v
         r_vec = state[:3]
         v_vec = state[3:]
         h = np.cross(r_vec, v_vec)
@@ -337,13 +345,31 @@ def solar_polar_observer(dep_date: str, ac_ms2: float,
         current_inc_deg = np.degrees(np.arccos(cos_i))
         inclinations.append(current_inc_deg)
 
-        # Phase logic: inward first, then crank
+        v_mag_m = float(np.linalg.norm(v_vec))
+        energy_per_kg = 0.5 * v_mag_m ** 2 - _MU_SUN_M3S2 / r_mag
+
         if r_au > target_r_for_cranking_au and current_inc_deg < 2.0:
-            # Phase 1: spiral inward
+            # Phase 1: inward spiral
+            cone, clock = _locally_optimal_control(state[:3], state[3:], 'inward')
+        elif not crank_done and current_inc_deg < target_inclination_deg:
+            # Phase 2: crank
+            cone, clock = _locally_optimal_control(state[:3], state[3:], 'crank_inclination')
+        elif not braking_done and energy_per_kg > target_energy_per_kg:
+            # Phase 3: brake radial+tangential speed to get back into a bound
+            # polar orbit. The inclination crank inevitably adds orbital energy
+            # via the sail's unavoidable radial thrust component; here we give
+            # it back by firing "retrograde tangential" (thrust opposite v).
+            if not crank_done:
+                crank_done = True
+                crank_done_year = i / n_steps * duration_years
             cone, clock = _locally_optimal_control(state[:3], state[3:], 'inward')
         else:
-            # Phase 2: crank inclination
-            cone, clock = _locally_optimal_control(state[:3], state[3:], 'crank_inclination')
+            # Phase 4: polar orbit established — sail edge-on, no thrust
+            if not crank_done:
+                crank_done = True
+                crank_done_year = i / n_steps * duration_years
+            braking_done = True
+            cone, clock = np.pi / 2, 0.0
 
         state = _rk4_step(state, dt, ac_ms2, cone, clock)
         positions_km.append((state[:3] / 1000.0).tolist())
@@ -360,6 +386,7 @@ def solar_polar_observer(dep_date: str, ac_ms2: float,
         'final_inclination_deg': float(final_inc),
         'peak_inclination_deg': float(max(inclinations)),
         'final_r_au': float(final_r_au),
+        'crank_completed_year': crank_done_year,
         'n_points': len(positions_km),
     }
 
@@ -367,7 +394,9 @@ def solar_polar_observer(dep_date: str, ac_ms2: float,
 def propagate_solar_polar_observer_mission(dep_date: str, ac_ms2: float,
                                             duration_years: float = 8.0) -> Dict:
     """Format a solar polar observer mission for the designed_missions viewer."""
-    result = solar_polar_observer(dep_date, ac_ms2, duration_years=duration_years, n_steps=4000)
+    # ~1 day per step keeps the crank + brake phases stable
+    n = max(2000, int(duration_years * 1000))
+    result = solar_polar_observer(dep_date, ac_ms2, duration_years=duration_years, n_steps=n)
 
     base = datetime(2000, 1, 1)
     t0_mjd = result['departure_mjd2000']

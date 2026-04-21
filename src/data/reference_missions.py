@@ -1,110 +1,111 @@
-"""Pre-computed reference mission data for Voyager 2 and Cassini.
+"""Reference mission data for classic chemical interplanetary missions.
 
-Provides hardcoded trajectory data suitable for frontend visualization
-without requiring SPICE kernels. Planet positions use circular orbit
-approximations; trajectory arcs are interpolated in polar coordinates.
+Event timelines (dates, flyby distances, Δv gains) are from NASA historical
+records. The spacecraft trajectory between events is computed from real physics:
+
+- Planet positions at each event date come from SPICE (de440s.bsp) via
+  `get_body_state`, or from the KEPLERIAN_BODIES fallback for outer bodies
+  not in the kernel.
+- Each leg between two events is a Lambert solve (universal variable,
+  prograde, shortest-way) matched to the true heliocentric positions.
+- The arc is dense-sampled by propagating the Lambert solution via Kepler.
+
+This replaces an earlier implementation that used circular, zero-inclination
+orbit approximations for planets and polar-coordinate interpolation for the
+spacecraft arcs — which looked plausible for short missions but drifted badly
+on multi-year missions like Voyager 2, where planets ended up visibly off
+their SPICE orbit traces and the spacecraft didn't intersect the planet
+positions it was supposed to fly by.
 """
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+from src.core.ephemeris import get_body_state, utc_to_et
+from src.core.lambert import solve_lambert
+from src.core.propagate import propagate_kepler
+from src.core.constants import MU_SUN
 
-AU_KM = 1.495978707e8  # 1 AU in km
+AU_KM = 1.495978707e8
 
-# Circular orbit parameters: (semi-major axis in AU, period in days, J2000 longitude in deg)
-# J2000 longitudes are approximate mean longitudes at J2000.0 (2000-01-01 12:00 TT)
-PLANET_ORBITS = {
-    "Earth":   {"a_au": 1.000, "period_days": 365.25,  "lon_j2000": 100.46},
-    "Venus":   {"a_au": 0.723, "period_days": 224.7,   "lon_j2000": 181.98},
-    "Mercury": {"a_au": 0.387, "period_days": 87.97,   "lon_j2000": 252.25},
-    "Mars":    {"a_au": 1.524, "period_days": 686.97,  "lon_j2000": 355.45},
-    "Jupiter": {"a_au": 5.203, "period_days": 4332.6,  "lon_j2000": 34.40},
-    "Saturn":  {"a_au": 9.537, "period_days": 10759.2, "lon_j2000": 49.94},
-    "Uranus":  {"a_au": 19.19, "period_days": 30687.0, "lon_j2000": 313.23},
-    "Neptune": {"a_au": 30.07, "period_days": 60190.0, "lon_j2000": 304.88},
-    "Pluto":   {"a_au": 39.48, "period_days": 90560.0, "lon_j2000": 238.92},
-}
-
-J2000_EPOCH = datetime(2000, 1, 1, 12, 0, 0)
-
-POINTS_PER_LEG = 50
+POINTS_PER_LEG = 60
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _planet_state(body: str, date_obj: datetime) -> np.ndarray:
+    """Heliocentric state [x, y, z, vx, vy, vz] (km, km/s) from SPICE."""
+    utc_str = date_obj.strftime('%Y-%m-%dT%H:%M:%S')
+    et = utc_to_et(utc_str)
+    return get_body_state(body.lower(), et)
+
+
 def _planet_position_km(body: str, date: datetime) -> List[float]:
-    """Return approximate heliocentric [x, y, z] in km for *body* at *date*.
+    """Heliocentric position [x, y, z] (km) at a given date — for event markers."""
+    return _planet_state(body, date)[:3].tolist()
 
-    Uses a circular orbit in the ecliptic plane (z=0).
+
+def _lambert_arc(r1: np.ndarray, r2: np.ndarray, tof_sec: float,
+                 n_points: int = POINTS_PER_LEG) -> List[List[float]]:
+    """Lambert arc between r1 and r2 in tof_sec seconds, densely sampled.
+
+    The underlying Lambert solver has two "prograde/retrograde" branches whose
+    sign convention can flip for long-way transfers (e.g. Voyager 2's
+    Saturn→Uranus leg). We try both and pick whichever closes on r2 under
+    Kepler propagation.
     """
-    orb = PLANET_ORBITS[body]
-    dt_days = (date - J2000_EPOCH).total_seconds() / 86400.0
-    mean_lon_rad = math.radians(orb["lon_j2000"]) + 2.0 * math.pi * dt_days / orb["period_days"]
-    r_km = orb["a_au"] * AU_KM
-    x = r_km * math.cos(mean_lon_rad)
-    y = r_km * math.sin(mean_lon_rad)
-    return [x, y, 0.0]
+    best_v1 = None
+    best_err = np.inf
+    for prograde in (True, False):
+        try:
+            v1, _ = solve_lambert(r1, r2, tof_sec, MU_SUN, prograde=prograde)
+        except Exception:
+            continue
+        r_end, _ = propagate_kepler(r1.copy(), v1.copy(), tof_sec, MU_SUN)
+        err = float(np.linalg.norm(r_end - r2))
+        if err < best_err:
+            best_err = err
+            best_v1 = v1
 
+    if best_v1 is None:
+        # Fall back to straight line if Lambert completely failed
+        return [r1.tolist(), r2.tolist()]
 
-def _interpolate_arc(
-    body_a: str,
-    date_a: datetime,
-    body_b: str,
-    date_b: datetime,
-    n_points: int = POINTS_PER_LEG,
-) -> List[List[float]]:
-    """Generate an approximate trajectory arc between two planetary encounters.
+    points: List[List[float]] = [r1.tolist()]
+    r, v = r1.copy(), best_v1.copy()
+    dt = tof_sec / (n_points - 1)
+    for _ in range(n_points - 1):
+        r, v = propagate_kepler(r, v, dt, MU_SUN)
+        points.append(r.tolist())
 
-    Interpolates in polar coordinates (r, theta) between the departure and
-    arrival positions, producing a smooth curve in the ecliptic plane.
-    """
-    pos_a = _planet_position_km(body_a, date_a)
-    pos_b = _planet_position_km(body_b, date_b)
-
-    r_a = math.sqrt(pos_a[0] ** 2 + pos_a[1] ** 2)
-    theta_a = math.atan2(pos_a[1], pos_a[0])
-
-    r_b = math.sqrt(pos_b[0] ** 2 + pos_b[1] ** 2)
-    theta_b = math.atan2(pos_b[1], pos_b[0])
-
-    # Choose the shorter angular direction for inner-to-outer transfers,
-    # but for gravity-assist missions the spacecraft often travels >180 deg.
-    # Use a simple heuristic: if the radial distance increases significantly,
-    # allow the full prograde sweep.
-    dtheta = theta_b - theta_a
-    # Normalize to (-2pi, 2pi) — prefer prograde (positive) sweep
-    if dtheta < 0:
-        dtheta += 2.0 * math.pi
-    # For legs that clearly go more than halfway around, add a full revolution
-    # (not needed for these reference missions, but keeps it general)
-
-    fracs = np.linspace(0.0, 1.0, n_points)
-    points: List[List[float]] = []
-    for f in fracs:
-        theta = theta_a + f * dtheta
-        r = r_a + f * (r_b - r_a)
-        points.append([float(r * math.cos(theta)), float(r * math.sin(theta)), 0.0])
+    # Close any residual Lambert-solver drift (accumulates for long-TOF outer-planet
+    # transfers) by linearly blending the error so the arc endpoints are exactly
+    # r1 and r2. Interior points get a small correction proportional to t/tof.
+    err = r2 - np.array(points[-1])
+    n = len(points)
+    if np.linalg.norm(err) > 0:
+        for i in range(n):
+            frac = i / (n - 1)
+            pi = np.array(points[i]) + frac * err
+            points[i] = pi.tolist()
     return points
 
 
 def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
-    """Build the full trajectory path from a sequence of encounter events."""
+    """Build the trajectory by Lambert-solving each leg between consecutive events."""
     trajectory: List[List[float]] = []
     for i in range(len(events) - 1):
         ev_a = events[i]
         ev_b = events[i + 1]
-        arc = _interpolate_arc(
-            ev_a["body"], ev_a["_date_obj"],
-            ev_b["body"], ev_b["_date_obj"],
-        )
+        r1 = np.asarray(_planet_state(ev_a["body"], ev_a["_date_obj"])[:3])
+        r2 = np.asarray(_planet_state(ev_b["body"], ev_b["_date_obj"])[:3])
+        tof_sec = (ev_b["_date_obj"] - ev_a["_date_obj"]).total_seconds()
+        arc = _lambert_arc(r1, r2, tof_sec, n_points=POINTS_PER_LEG)
         # Avoid duplicating the junction point between legs
         if i > 0:
             arc = arc[1:]
