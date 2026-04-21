@@ -679,10 +679,15 @@ export function Sidebar() {
               { id: 'tour-sg344-rh120', label: 'Tour: SG344→RH120', sub: 'E→SG344→RH120→E', detail: '3.71 km/s · 2.5yr' },
               { id: 'lt-earth-mars', label: 'Low-Thrust: Earth→Mars', sub: 'Ion, E→Mars', detail: '223 kg Xe · 400d · 4.71 km/s' },
               { id: 'lt-earth-vesta', label: 'Low-Thrust: Earth→Vesta', sub: 'Ion, Dawn-like', detail: '350 kg Xe · 1300d · 9.18 km/s' },
+              { id: 'lt-apophis', label: 'Low-Thrust: Apophis Rendezvous', sub: 'Ion, pre-2029 flyby', detail: 'Ion cruise · arrive Jan 2029' },
+              { id: 'lt-chiron', label: 'Low-Thrust: Chiron Orbiter', sub: 'Ion, first Centaur orbiter', detail: '12.3yr · 1200 kg Xe · 14 AU' },
+              { id: 'halley-2061-flyby', label: "Halley's Comet Flyby 2061", sub: 'Chemical, retrograde flyby', detail: '47.7 km/s encounter · 1.7yr' },
               { id: 'sail-interstellar', label: 'Solar Sail: Interstellar', sub: 'Zero propellant', detail: '15.5 km/s · 3.3 AU/yr' },
+              { id: 'sail-polar-observer', label: 'Solar Sail: Polar Observer', sub: 'Crank inclination, no fuel', detail: '6yr · view solar poles' },
               { id: 'hybrid-mars-capture', label: 'Hybrid: Mars Capture', sub: 'Ion + Chemical orbit insertion', detail: 'Ion cruise + chem capture' },
               { id: 'hybrid-saturn', label: 'Hybrid: Saturn', sub: 'Cassini-class hybrid', detail: '7.7yr · 1200 kg Xe' },
               { id: 'hybrid-pluto', label: 'Hybrid: Pluto Orbiter', sub: 'Faster NH, with orbit', detail: '12yr · 1500 kg Xe' },
+              { id: 'hybrid-triton', label: 'Hybrid: Neptune/Triton', sub: 'Hybrid, reach mission', detail: '15yr · 30 AU · post-Voyager 2' },
               { id: 'lt-sr-bennu', label: 'Low-Thrust Sample Return: Bennu', sub: 'Ion OSIRIS-REx', detail: '3.8yr · 400 kg Xe (vs 93% chem)' },
             ].map(m => (
               <button

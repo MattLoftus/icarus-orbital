@@ -161,6 +161,7 @@ def _locally_optimal_control(r_m, v_m, target_mode: str = 'outward'):
         'outward': maximize radial (heliocentric) acceleration — for escape
         'orbital_energy': maximize orbital energy rate (tangential thrust)
         'inward': minimize orbital energy (for inward spiral)
+        'crank_inclination': crank heliocentric inclination (out-of-plane thrust)
     """
     r_mag = np.linalg.norm(r_m)
     rhat = r_m / r_mag
@@ -170,16 +171,23 @@ def _locally_optimal_control(r_m, v_m, target_mode: str = 'outward'):
         return 0.0, 0.0
 
     if target_mode == 'outward':
-        # Maximum radial thrust: cone_angle = 0, sail faces Sun
         return 0.0, 0.0
     elif target_mode == 'orbital_energy':
-        # Max rate of energy change: d(E)/dt = v · a_sail
-        # Want a_sail parallel to v, pointing in +v direction
-        # For an ideal sail, optimal cone angle for max tangential thrust is ~35.26° (atan(1/sqrt(2)))
-        return 0.6155, 0.0   # 35.26° cone, clock=0 aligns with vhat
+        return 0.6155, 0.0
     elif target_mode == 'inward':
-        # Decelerate: point thrust opposite to v
         return 0.6155, np.pi
+    elif target_mode == 'crank_inclination':
+        # Thrust perpendicular to the current orbital plane (out-of-plane).
+        # In our local frame: i=rhat, j=vhat_proj (tangential), k=i×j (out of plane).
+        # To max inclination change, thrust perpendicular to both r and v — i.e., along k.
+        # Sail normal at cone=35.26° toward k direction, clock=±π/2 aligns with nhat.
+        # Alternate sign each half-orbit (ascending vs descending node) for net inclination change.
+        # Sign: thrust should point in the direction of orbital angular momentum's
+        # rotation axis when crossing ascending node, opposite at descending.
+        # Use sign of (r × v)·ẑ to determine half-orbit.
+        # Simpler: use clock = +π/2 when above ecliptic, -π/2 when below.
+        clock = np.pi / 2 if r_m[2] > 0 else -np.pi / 2
+        return 0.6155, clock
     return 0.0, 0.0
 
 
@@ -278,6 +286,128 @@ def solar_sail_escape(dep_date: str, ac_ms2: float,
         'escape_time_years': (t_escape_idx / n_steps * duration_years) if t_escape_idx else None,
         'escape_date_mjd2000': escape_date_mjd,
         'n_points': len(positions_km),
+    }
+
+
+def solar_polar_observer(dep_date: str, ac_ms2: float,
+                          duration_years: float = 8.0,
+                          n_steps: int = 6000) -> Dict:
+    """Solar sail mission to crank heliocentric inclination.
+
+    Strategy: continuous out-of-plane thrust (perpendicular to orbital plane),
+    alternating direction each half-orbit to accumulate inclination change.
+    Near-Sun orbit at 0.5 AU is efficient since thrust scales as 1/r².
+
+    Typical advanced sail (a_c ~ 2 mm/s²) can reach 75° inclination in ~7-8 years.
+    """
+    base = datetime(2000, 1, 1)
+    dep = datetime.fromisoformat(dep_date)
+    t0_mjd = (dep - base).total_seconds() / 86400.0
+
+    r_e = jpl_lp_state('earth', t0_mjd)
+    r0_km = r_e[:3]
+    v0_kms = r_e[3:]
+
+    r = r0_km * 1000.0
+    v = v0_kms * 1000.0
+    state = np.concatenate([r, v])
+
+    total_sec = duration_years * 365.25 * 86400
+    dt = total_sec / n_steps
+
+    positions_km = [r0_km.tolist()]
+    inclinations = []
+
+    # Phase 1: spiral inward to ~0.5 AU for efficient inclination cranking
+    # Phase 2: crank inclination
+    # Use distance threshold to switch phases.
+    target_r_for_cranking_au = 0.5
+
+    for i in range(n_steps):
+        r_mag = np.linalg.norm(state[:3])
+        r_au = r_mag / _AU_M
+
+        # Compute current inclination from state
+        r_vec = state[:3]
+        v_vec = state[3:]
+        h = np.cross(r_vec, v_vec)
+        h_mag = np.linalg.norm(h)
+        cos_i = h[2] / h_mag if h_mag > 0 else 1.0
+        cos_i = max(-1.0, min(1.0, cos_i))
+        current_inc_deg = np.degrees(np.arccos(cos_i))
+        inclinations.append(current_inc_deg)
+
+        # Phase logic: inward first, then crank
+        if r_au > target_r_for_cranking_au and current_inc_deg < 2.0:
+            # Phase 1: spiral inward
+            cone, clock = _locally_optimal_control(state[:3], state[3:], 'inward')
+        else:
+            # Phase 2: crank inclination
+            cone, clock = _locally_optimal_control(state[:3], state[3:], 'crank_inclination')
+
+        state = _rk4_step(state, dt, ac_ms2, cone, clock)
+        positions_km.append((state[:3] / 1000.0).tolist())
+
+    final_inc = inclinations[-1]
+    final_r_au = np.linalg.norm(state[:3]) / _AU_M
+
+    return {
+        'positions_km': positions_km,
+        'inclinations_deg': inclinations,
+        'departure_mjd2000': t0_mjd,
+        'duration_years': duration_years,
+        'ac_mm_s2': ac_ms2 * 1e3,
+        'final_inclination_deg': float(final_inc),
+        'peak_inclination_deg': float(max(inclinations)),
+        'final_r_au': float(final_r_au),
+        'n_points': len(positions_km),
+    }
+
+
+def propagate_solar_polar_observer_mission(dep_date: str, ac_ms2: float,
+                                            duration_years: float = 8.0) -> Dict:
+    """Format a solar polar observer mission for the designed_missions viewer."""
+    result = solar_polar_observer(dep_date, ac_ms2, duration_years=duration_years, n_steps=4000)
+
+    base = datetime(2000, 1, 1)
+    t0_mjd = result['departure_mjd2000']
+    arrive_mjd = t0_mjd + duration_years * 365.25
+
+    def fmt(mjd):
+        return (base + timedelta(days=float(mjd))).strftime('%Y-%m-%d')
+
+    events = [
+        {
+            'body': 'Earth',
+            'date': fmt(t0_mjd),
+            'type': 'launch',
+            'distance_km': 0,
+            'dv_gained_km_s': 0.0,
+            'heliocentric_position_km': result['positions_km'][0],
+        },
+        {
+            'body': f'Polar Orbit ({result["peak_inclination_deg"]:.0f}° inclination)',
+            'date': fmt(arrive_mjd),
+            'type': 'arrival',
+            'distance_km': 0,
+            'dv_gained_km_s': round(float(result['peak_inclination_deg']), 1),
+            'heliocentric_position_km': result['positions_km'][-1],
+        },
+    ]
+
+    return {
+        'events': events,
+        'trajectory_positions': result['positions_km'],
+        'sequence': ['Earth', 'Solar Polar Orbit'],
+        'stats': {
+            'propulsion_type': 'solar_sail',
+            'characteristic_acceleration_mm_s2': round(float(result['ac_mm_s2']), 3),
+            'peak_inclination_deg': round(float(result['peak_inclination_deg']), 1),
+            'final_inclination_deg': round(float(result['final_inclination_deg']), 1),
+            'final_r_au': round(float(result['final_r_au']), 2),
+            'duration_years': duration_years,
+            'no_propellant': True,
+        },
     }
 
 

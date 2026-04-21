@@ -215,6 +215,53 @@ export function Guide() {
         </Grid>
       </Section>
 
+      {/* Designed Missions */}
+      <Section title="Designed Missions">
+        <p style={{ marginBottom: '12px' }}>
+          Novel trajectories optimized by I.C.A.R.U.S. — each explores a scientific question
+          that could not be answered by a chemical-only mission. Full analysis in
+          <code style={{ fontSize: '11px', padding: '1px 4px', background: 'var(--void)', borderRadius: '3px', marginLeft: '4px' }}>NOVEL_MISSIONS.md</code>.
+        </p>
+        <Grid cols={2}>
+          <Card accent="var(--cyan)" title="Grand Tours (EEJS / VEJS)">
+            Modern Voyager-class multi-planet tours available in 2033-2034 launch windows.
+            Best: E→E→J→S at 8.80 km/s with C3 of 2.6 km²/s² — launches on anything.
+          </Card>
+          <Card accent="var(--amber)" title="NEA Sample Returns">
+            2000 SG344 is accessible for <strong>1.83 km/s total Δv</strong> — 6× cheaper than OSIRIS-REx.
+            Multi-target tour (SG344 → RH120) costs only 3.71 km/s for two asteroids.
+          </Card>
+          <Card accent="#8b5cf6" title="Interstellar Precursor (VEJ)">
+            Venus-Earth-Jupiter chain reaches 35 km/s asymptotic (7.4 AU/yr) — 2× Voyager 1's speed.
+            Would cross 200 AU in 27 years with just a 15 km/s chemical Δv budget.
+          </Card>
+          <Card accent="var(--green)" title="Low-Thrust Apophis (2027→2029)">
+            Ion rendezvous arriving 3 months before Apophis's historic 2029 Earth flyby.
+            265 kg xenon (33% of launch mass) — impossible with chemical propulsion.
+          </Card>
+          <Card accent="#f59e0b" title="Low-Thrust Chiron Orbiter">
+            First-ever orbiter of a Centaur (active coma + ring system). 12.3-year ion cruise to 14 AU,
+            arriving with 0.22 km/s v_inf — essentially captured.
+          </Card>
+          <Card accent="var(--cyan)" title="Halley's Comet Flyby 2061">
+            Retrograde comet — rendezvous is physically impossible, but a 47.7 km/s flyby gets imagery
+            unavailable since Giotto 1986. C3=28.7, launch 2060.
+          </Card>
+          <Card accent="var(--amber)" title="Hybrid Neptune/Triton">
+            The ultimate reach mission. SLS-class launch + advanced ion + chemical orbit insertion
+            reaches 30 AU in 15 years — first Triton encounter since Voyager 2.
+          </Card>
+          <Card accent="var(--green)" title="Solar Sail Polar Observer">
+            Crank heliocentric inclination to 134° using zero propellant. The first tractable mission
+            concept for direct imaging of the Sun's poles over a full solar cycle.
+          </Card>
+        </Grid>
+        <p style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-dim)' }}>
+          Also available: Jupiter via VEJ (10.18 km/s, 4.6yr), Hybrid Mars/Saturn/Pluto, Ion sample return,
+          Solar Sail Interstellar Escape (15.5 km/s asymptotic, no propellant).
+        </p>
+      </Section>
+
       {/* Data Sources */}
       <Section title="Data Sources">
         <Grid cols={2}>

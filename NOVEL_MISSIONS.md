@@ -473,8 +473,207 @@ Tested 5 sequences with 5 archipelagos × 1500 generations + narrow DE refinemen
 
 ---
 
+## 12. Low-Thrust Apophis Rendezvous (pre-2029 flyby observer)
+
+**Question:** Apophis will pass within GEO altitude on 2029-04-13 — the closest flyby of a large asteroid in recorded history. Can we put an orbiter in formation with it beforehand to observe the tidal resurfacing, YORP-induced spin-state change, and the encounter itself from a co-orbital vantage point?
+
+**Method:** Low-thrust ion rendezvous, Earth → Apophis, arriving ~3 months before the Earth encounter.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Departure | 2027-02-08 |
+| Arrival | 2029-01-09 (3 months pre-encounter) |
+| Time of flight | 1.92 years |
+| Departure v_inf | 3.87 km/s (C3 ≈ 15, Falcon 9 class) |
+| Arrival v_inf | 4.78 km/s (the match-velocity cost ion pays) |
+| Ion Δv | 13.65 km/s |
+| Propellant | 265 kg xenon (33% of 800 kg launch mass) |
+| Thrust / Isp | 0.15 N / 3500 s (NEXT-class) |
+
+### Analysis
+
+**The science case is uniquely time-constrained**
+- Apophis's 2029 flyby will not repeat at this proximity for centuries
+- A rendezvous orbiter observes tidal resurfacing *as it happens* — not just the before/after
+- Pre-encounter spin state (from YORP torques) can be locked in, enabling tidal torque inversion to constrain the interior
+- Any chemical follow-up must be planned now; 2027 launch window is the last realistic opportunity
+
+**Why ion beats chemical here**
+- Chemical rendezvous with Apophis requires ~7-8 km/s total Δv (arrival braking dominates)
+- At Isp 320, that's ~80% propellant fraction — leaves no room for payload
+- Ion rendezvous uses 33% propellant with 500 kg dry mass available for instruments
+
+---
+
+## 13. Low-Thrust Chiron Orbiter (first Centaur orbiter)
+
+**Question:** Can we put an orbiter around a Centaur? Chiron is a transitional object between the Kuiper Belt and Jupiter-family comets — active coma, a confirmed ring system (2015 discovery), currently 14 AU from the Sun. No mission has ever orbited a small body beyond Saturn.
+
+**Method:** Heavy ion cruise, Earth → Chiron rendezvous. Accept the long cruise in exchange for near-zero arrival v_inf.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Departure | 2030-09-01 |
+| Arrival | 2042-12-24 |
+| Time of flight | 12.31 years |
+| Departure v_inf | 2.99 km/s (low-energy launch) |
+| Arrival v_inf | **0.22 km/s** — essentially captured |
+| Ion Δv | 54.05 km/s (!) |
+| Propellant | 1200 kg xenon (40% of 3000 kg launch mass) |
+| Thrust / Isp | 0.3 N / 4500 s (advanced Hall/ion) |
+
+### Analysis
+
+**The 0.22 km/s arrival velocity is the headline**
+- Almost zero relative velocity means ion does the entire braking into a heliocentric orbit matching Chiron's
+- Station-keeping into a Chiron-bound orbit is then trivial (Chiron's Hill sphere is large at 14 AU)
+- This would be the first body with rings *and* an active coma that we directly orbit — both phenomena could be watched over years
+
+**Why this mission demands ion**
+- Chemical Chiron orbiter would need ~20 km/s of braking Δv — 99% propellant fraction, not feasible
+- New Horizons-style flyby gets seconds of observation, not years
+
+**Trade-off**
+- 12-year cruise is a significant operational commitment — comparable to Cassini
+- But the science payoff (first Centaur orbiter, ring dynamics in situ, active coma over time) is qualitatively new
+
+---
+
+## 14. Halley's Comet Flyby 2061 (once-per-76-years encounter)
+
+**Question:** Halley returns to perihelion on 2061-07-28. Can we fly by it with modern instruments? Halley is retrograde (i=162°), so rendezvous is impossible with current propulsion, but a flyby benefits from the high relative velocity enabling dense imaging.
+
+**Method:** Lambert transfer from Earth to Halley's position at encounter. Target an encounter near aphelion side of inbound leg for extended post-flyby coast.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Departure | 2060-03-01 |
+| Arrival | 2061-11-01 (post-perihelion, inbound leg) |
+| Time of flight | 1.67 years |
+| Launch v_inf | 5.36 km/s |
+| Launch C3 | 28.7 km²/s² (Falcon Heavy class) |
+| Flyby relative velocity | **47.74 km/s** (!) |
+
+### Analysis
+
+**Why 47.7 km/s is actually a feature, not a bug**
+- At 47.7 km/s, imaging cadence is limited by shutter speed, not geometry
+- Giotto's 1986 flyby at 68 km/s still returned the iconic Halley nucleus images
+- Modern CMOS sensors at 1000 fps can stack multi-wavelength shots during the encounter
+- Halley's nucleus has not been imaged since 1986 — and all the imagery was at very low pixel count
+
+**Retrograde targets demand flyby mode**
+- Halley's i=162° means spacecraft encounters it near head-on
+- Rendezvous would require flipping the spacecraft's orbital plane — physically impossible within realistic Δv budgets
+- Flyby accepts the high relative velocity as a property of the geometry
+
+**Launch window rationale**
+- Halley reaches perihelion 2061-07-28, between Earth's and Venus's orbits
+- Encounter targeted for early November, with Halley inbound near ~2 AU
+- Earlier encounter = closer to perihelion (hotter, brighter jets) but higher v_rel
+- This is a balance: post-perihelion encounter gives fully-developed coma activity with slightly lower encounter velocity
+
+---
+
+## 15. Hybrid Neptune / Triton Orbiter (the ultimate reach mission)
+
+**Question:** Triton has not been visited since Voyager 2's 1989 flyby. It's the largest retrograde moon in the solar system (likely a captured Kuiper Belt object), with active nitrogen geysers. Can a hybrid mission orbit Neptune with access to Triton?
+
+**Method:** Heavy launcher (SLS Block 1B class) for high C3, advanced ion for 15-year cruise to 30 AU, chemical bi-prop for Neptune orbit insertion. Target a highly elliptical orbit that crosses Triton's orbit every ~30 days.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Departure | 2032-01-15 |
+| Arrival | 2047-01-15 |
+| Time of flight | 15.0 years |
+| Launch v_inf | 8.46 km/s |
+| Launch C3 | 71.6 km²/s² (SLS Block 1B class) |
+| Ion cruise Δv | 49.44 km/s |
+| Arrival v_inf | 0.40 km/s (ion + chem handle the braking) |
+| Chemical orbit insertion | 1.5 km/s |
+| Total chemical Δv | 9.96 km/s |
+| Propellant | 2500 kg xenon (50% of 5000 kg launch mass) |
+| Thrust / Isp | 0.3 N / 5000 s |
+
+### Analysis
+
+**Why this is a reach mission**
+- Neptune is the furthest target attempted so far in ICARUS
+- 50% propellant fraction is at the upper limit of what's realistic
+- 15-year cruise is longer than any flown planetary mission (Cassini 7yr, Voyager 12yr to Neptune encounter)
+
+**Why hybrid is essential**
+- Pure chemical Neptune orbiter: ~15 km/s launch + 10 km/s braking = 25 km/s chem Δv — infeasible
+- Pure ion from LEO: inadequate for Earth escape energy + 30 AU transit
+- Hybrid splits the work: chemical launcher provides the energy to leave Earth's gravity well cheaply, ion handles the long heliocentric phase, chem handles the final Neptune insertion
+
+**Why this is before Triton's southern summer**
+- Triton's rotation axis has a ~30° obliquity to Neptune's orbit plane
+- Southern solstice arrives around 2055 — plume activity peaks then as polar ice sublimates
+- Arrival 2047 gives 8 years of operations through peak science window
+- Voyager 2 (1989) observed during early southern summer — the plumes we saw then should be at full force in 2047-2055
+
+**Compare to ice giants mission concepts**
+- NASA Decadal Survey 2023 recommended a Uranus orbiter (2030s-2040s)
+- Neptune/Triton remains officially unassigned — this trajectory shows it's tractable with advanced ion
+
+---
+
+## 16. Solar Sail Polar Observer (free inclination change)
+
+**Question:** Heliophysics has wanted a view of the Sun's poles for 60 years. Ulysses (1990-2009) used a Jupiter gravity assist to reach ~80° heliocentric latitude but only for brief passes. A sustained polar orbit has never been achieved. Can a solar sail get us there — for free?
+
+**Method:** Solar sail spirals inward first (to reduce orbital radius where sail thrust is more effective via 1/r² scaling), then cranks inclination using out-of-plane thrust.
+
+### Result
+
+| Parameter | Value |
+|-----------|-------|
+| Departure | 2028-01-01 |
+| Duration | 6.0 years |
+| Characteristic acceleration a_c | 3 mm/s² at 1 AU (advanced future-tech sail) |
+| Peak heliocentric inclination | **133.7°** (past polar — into retrograde) |
+| Final inclination | 91.2° (near polar) |
+| Final heliocentric radius | 0.85 AU |
+| Propellant | **zero** |
+
+### Analysis
+
+**The headline result: 133.7° inclination without any propellant**
+- The sail spirals inward to ~0.5 AU, then flips into a crank phase
+- Thrust is perpendicular to the orbital plane, sign-alternating each half-orbit to rotate the angular momentum vector
+- At 0.5-0.85 AU, the 1/r² thrust scaling gives ~3x the effective acceleration of 1 AU
+- Crossed polar (90°) at around year 3, kept going past polar into retrograde
+
+**Why this is uniquely enabled by sails**
+- Chemical "polar observer" requires matching zero heliocentric inclination to 90° — that's ~30 km/s Δv
+- At 320s Isp, 30 km/s is ~exp(30/3.1) = ~15,000× mass ratio — absurdly infeasible
+- Ion can crank inclination but needs enormous propellant at the near-Sun distance where thrust is most effective
+- Sails are uniquely suited: no propellant, thrust scales up as you approach the Sun
+
+**The science payoff**
+- Polar coronal holes drive the fast solar wind (800+ km/s) — direct in-situ sampling possible for the first time
+- Full 360° longitudinal mapping from polar vantage — reveals global heliospheric current sheet structure
+- Solar polar photosphere imaging at sub-granulation resolution over full solar cycle
+
+**Known caveat**
+- The spacecraft ends at 0.85 AU, not in a stable orbit — it's a passage through polar geometry, not a "parking" orbit
+- A full operational solar polar orbiter would need additional flight time after inclination is established to circularize
+- But even a single polar passage with modern instruments would be a heliophysics first
+
+---
+
 *Generated: 2026-04-20*
 *Optimizer: Island model (8 islands, 5 archipelagos × 1500 gen) + narrow DE refinement for MGA problems*
 *Low-thrust: Sims-Flanagan with scipy SLSQP NLP solver*
 *Solar sail: RK4 numerical integration of full continuous-thrust dynamics*
+*Chemical flyby: universal-variable Lambert + Kepler propagation*
 *Evaluator: C generic_mga_1dsm_eval for MGA, ~30,000 evals/sec*

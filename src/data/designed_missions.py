@@ -110,6 +110,60 @@ _SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
     },
 }
 
+# Low-thrust one-way rendezvous missions (ion, no sample return)
+_LT_RENDEZVOUS_MISSIONS: Dict[str, Dict] = {
+    'lt-apophis': {
+        'name': 'Low-Thrust Apophis Rendezvous',
+        'description': 'Ion rendezvous with asteroid Apophis before its historic April 2029 close '
+                       'approach (within GEO altitude — the closest flyby of a large asteroid in recorded '
+                       'history). A spacecraft already in rendezvous orbit could observe the tidal '
+                       'resurfacing, spin-state changes, and YORP effects during and after the Earth encounter. '
+                       'Launch early 2027, arrive January 2029.',
+        'target_elements_name': 'apophis',
+        'target_display_name': 'Apophis',
+        'dep_date': '2027-02-08',
+        'arr_date': '2029-01-09',
+        'thrust_n': 0.15,
+        'isp': 3500.0,
+        'm0': 800.0,
+        'm_dry': 500.0,
+        'n_segments': 20,
+    },
+    'lt-chiron': {
+        'name': 'Low-Thrust Chiron Rendezvous (Centaur)',
+        'description': 'First ever orbiter of a Centaur — transitional bodies between the Kuiper Belt and '
+                       'Jupiter-family comets. 2060 Chiron has an active coma and a confirmed ring system '
+                       '(2015 discovery). Heavy ion cruise to 14 AU with near-zero arrival v_inf (0.045 km/s). '
+                       '12.3 year mission, 1200 kg xenon.',
+        'target_elements_name': 'chiron',
+        'target_display_name': '2060 Chiron',
+        'dep_date': '2030-09-01',
+        'arr_date': '2042-12-24',
+        'thrust_n': 0.3,
+        'isp': 4500.0,
+        'm0': 3000.0,
+        'm_dry': 1800.0,
+        'n_segments': 25,
+    },
+}
+
+# Chemical flyby missions
+_FLYBY_MISSIONS: Dict[str, Dict] = {
+    'halley-2061-flyby': {
+        'name': "Halley's Comet Flyby 2061",
+        'description': "Fast chemical flyby of Halley's Comet during its 2061 apparition. Halley is retrograde "
+                       "(i=162°), so the spacecraft encounters it at 47.7 km/s relative velocity — comparable "
+                       "to ESA's Giotto flyby (68 km/s) but with higher resolution possible thanks to modern "
+                       "imaging. Launch March 2060, encounter November 2061 while Halley is inbound near Jupiter's "
+                       "orbit. C3=28.7 (Falcon Heavy class).",
+        'target_name': "1P/Halley",
+        'target_elements_name': 'halley',
+        'dep_date': '2060-03-01',
+        'arr_date': '2061-11-01',
+        'include_post_flyby_days': 365,
+    },
+}
+
 # Low-thrust sample return missions (ion alternative to chemical sample returns)
 _LT_SAMPLE_RETURN_MISSIONS: Dict[str, Dict] = {
     'lt-sr-bennu': {
@@ -143,6 +197,20 @@ _SOLAR_SAIL_MISSIONS: Dict[str, Dict] = {
         'dep_date': '2028-01-01',
         'ac_ms2': 3e-3,
         'duration_years': 15.0,
+    },
+    'sail-polar-observer': {
+        'name': 'Solar Sail: Solar Polar Observer',
+        'description': 'Long-standing dream of heliophysicists: a spacecraft in a high-inclination '
+                       'heliocentric orbit to image the Sun\'s poles (invisible from the ecliptic). '
+                       'Chemical propulsion has never been able to afford the ~30 km/s Δv required to '
+                       'flip out of the ecliptic plane. A solar sail cranks inclination for free. '
+                       'With a_c = 3 mm/s² over 6 years, the sailcraft spirals inward and accumulates '
+                       'out-of-plane thrust to reach a near-retrograde heliocentric orbit — the first '
+                       'ever direct view of the solar poles at high cadence.',
+        'type': 'polar_observer',
+        'dep_date': '2028-01-01',
+        'ac_ms2': 3e-3,
+        'duration_years': 6.0,
     },
 }
 
@@ -184,6 +252,42 @@ def get_designed_mission(mission_id: str) -> Dict:
     if mission_id in LOW_THRUST_MISSIONS:
         return get_low_thrust_mission(mission_id)
 
+    # Low-thrust one-way rendezvous (Apophis, Chiron, etc.)
+    if mission_id in _LT_RENDEZVOUS_MISSIONS:
+        from src.core.lt_rendezvous import (
+            propagate_lt_rendezvous, APOPHIS_ELEMENTS, CHIRON_ELEMENTS,
+        )
+        spec = _LT_RENDEZVOUS_MISSIONS[mission_id]
+        elements_map = {'apophis': APOPHIS_ELEMENTS, 'chiron': CHIRON_ELEMENTS}
+        target_elements = elements_map.get(spec['target_elements_name'])
+        result = propagate_lt_rendezvous(
+            target_name=spec['target_display_name'],
+            dep_date=spec['dep_date'], arr_date=spec['arr_date'],
+            thrust_n=spec['thrust_n'], isp=spec['isp'],
+            m0=spec['m0'], m_dry=spec['m_dry'],
+            n_segments=spec['n_segments'],
+            target_elements=target_elements,
+        )
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
+    # Chemical flyby missions (Halley, etc.)
+    if mission_id in _FLYBY_MISSIONS:
+        from src.core.flyby_missions import propagate_flyby_mission, HALLEY_ELEMENTS
+        spec = _FLYBY_MISSIONS[mission_id]
+        elements_map = {'halley': HALLEY_ELEMENTS}
+        target_elements = elements_map[spec['target_elements_name']]
+        result = propagate_flyby_mission(
+            target_name=spec['target_name'],
+            dep_date=spec['dep_date'], arr_date=spec['arr_date'],
+            target_elements=target_elements,
+            include_post_flyby_days=spec.get('include_post_flyby_days', 365.0),
+        )
+        result['name'] = spec['name']
+        result['description'] = spec['description']
+        return result
+
     # Low-thrust sample return missions
     if mission_id in _LT_SAMPLE_RETURN_MISSIONS:
         from src.core.lt_sample_return import propagate_lt_sample_return
@@ -215,10 +319,15 @@ def get_designed_mission(mission_id: str) -> Dict:
 
     # Solar sail
     if mission_id in _SOLAR_SAIL_MISSIONS:
-        from src.core.solar_sail import propagate_solar_sail_escape_mission
         spec = _SOLAR_SAIL_MISSIONS[mission_id]
-        result = propagate_solar_sail_escape_mission(
-            spec['dep_date'], spec['ac_ms2'], duration_years=spec['duration_years'])
+        if spec.get('type') == 'polar_observer':
+            from src.core.solar_sail import propagate_solar_polar_observer_mission
+            result = propagate_solar_polar_observer_mission(
+                spec['dep_date'], spec['ac_ms2'], duration_years=spec['duration_years'])
+        else:
+            from src.core.solar_sail import propagate_solar_sail_escape_mission
+            result = propagate_solar_sail_escape_mission(
+                spec['dep_date'], spec['ac_ms2'], duration_years=spec['duration_years'])
         result['name'] = spec['name']
         result['description'] = spec['description']
         return result

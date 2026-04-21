@@ -160,6 +160,29 @@ HYBRID_MISSIONS: Dict[str, Dict] = {
         'orbit_insertion_dv_kms': 1.0,
         'n_segments': 25,
     },
+    'hybrid-triton': {
+        'name': 'Hybrid: Neptune / Triton Orbiter',
+        'description': 'The ultimate reach mission — an orbiter of Neptune with access to Triton, the only '
+                       'large retrograde moon in the solar system (likely a captured Kuiper Belt object). '
+                       'Voyager 2\'s 1989 flyby revealed active nitrogen geysers, but no follow-up mission '
+                       'has ever been mounted. Heavy launcher provides ~8 km/s v_inf (SLS Block 1B class), '
+                       'advanced ion engines handle a 15-year cruise to 30 AU with ~2500 kg of xenon, then '
+                       'chemical bi-prop (~1.5 km/s) captures into a highly elliptical Neptune orbit. '
+                       'Triton-crossing orbit allows repeat encounters. Launch 2032 for arrival 2047 — '
+                       'before Triton rotates into its southern summer (peak plume activity).',
+        'dep_body': 'earth',
+        'arr_body': 'neptune',
+        'dep_date': '2032-01-15',
+        'arr_date': '2047-01-15',
+        'launch_vinf_kms': 8.5,
+        'max_arrival_vinf_kms': 5.0,
+        'thrust_n': 0.3,
+        'isp': 5000.0,
+        'm0': 5000.0,
+        'm_dry': 2500.0,
+        'orbit_insertion_dv_kms': 1.5,
+        'n_segments': 25,
+    },
 }
 
 

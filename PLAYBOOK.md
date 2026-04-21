@@ -163,6 +163,7 @@ The payoff for all the benchmark work — use the validated optimizer + 3D visua
 
 5. [x] **Multi-NEA Tour** — 4-pair comparison. Winner: 2000 SG344 → 2006 RH120 at **3.71 km/s** / 2.5yr. Mini-moon RH120 is a uniquely efficient multi-target partner. Only 1.9 km/s more than SG344 alone — second target is essentially "free". See `NOVEL_MISSIONS.md` §5.
 6. [x] **Electric / Solar Sail / Hybrid novel missions** — §6 (Low-thrust Earth-Mars, Earth-Vesta), §7 (Solar sail interstellar escape at 15 km/s asymptotic), §8 (Hybrid Mars capture), §9 (Ion Bennu sample return — 27% propellant vs 93% chemical), §10 (Hybrid Saturn — 7.7yr Cassini-class), §11 (Hybrid Pluto orbiter — first-ever Pluto orbit capability).
+7. [x] **Five mixed-propulsion high-value missions (2026-04-19)** — §12 Low-Thrust Apophis Rendezvous (ion, 265 kg Xe, arrive 3 months pre-2029 flyby), §13 Low-Thrust Chiron Orbiter (first-ever Centaur orbiter, 12.3yr cruise, arrival v_inf 0.22 km/s), §14 Halley's Comet Flyby 2061 (chemical Lambert, C3=28.7, 47.7 km/s encounter velocity, retrograde-compatible), §15 Hybrid Neptune/Triton Orbiter (ultimate reach mission: 15yr, 2500 kg Xe to 30 AU, post-Voyager 2 Triton access), §16 Solar Sail Polar Observer (134° peak inclination with zero propellant — heliophysics moonshot). New source modules: `src/core/lt_rendezvous.py`, `src/core/flyby_missions.py`, and `solar_polar_observer()` in `solar_sail.py`.
 
 ### Propulsion Expansion: Electric + Solar Sail
 
