@@ -92,6 +92,14 @@ const ELEMENTS: Record<string, Elements> = {
     m0: (-55.12002969 - 44.96476227 + 360) * DEG,
     period_days: 60189.0,
   },
+  pluto: {
+    a: 39.48168677, e: 0.24880766,
+    i:  17.14175 * DEG,
+    om: 110.30347 * DEG,
+    w:  113.76329 * DEG,
+    m0: 14.86228 * DEG,
+    period_days: 90560.0,
+  },
 };
 
 const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);

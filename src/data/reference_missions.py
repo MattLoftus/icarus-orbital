@@ -31,7 +31,8 @@ from src.core.constants import MU_SUN
 
 AU_KM = 1.495978707e8
 
-POINTS_PER_LEG = 60
+POINTS_PER_YEAR = 200  # trajectory points per year of mission time
+MIN_POINTS_PER_LEG = 10
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ def _planet_position_km(body: str, date: datetime) -> List[float]:
 
 
 def _lambert_arc(r1: np.ndarray, r2: np.ndarray, tof_sec: float,
-                 n_points: int = POINTS_PER_LEG) -> List[List[float]]:
+                 n_points: int = 60) -> List[List[float]]:
     """Lambert arc between r1 and r2 in tof_sec seconds, densely sampled.
 
     The underlying Lambert solver has two "prograde/retrograde" branches whose
@@ -97,19 +98,105 @@ def _lambert_arc(r1: np.ndarray, r2: np.ndarray, tof_sec: float,
 
 
 def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
-    """Build the trajectory by Lambert-solving each leg between consecutive events."""
-    trajectory: List[List[float]] = []
+    """Build a trajectory that is strictly uniform in time.
+
+    The frontend animates by array index (spacecraft at `trajectory[floor(p*(N-1))]`)
+    and computes the current date by linear time interpolation over (depDate, arrDate),
+    so the trajectory must be uniform in *time*. Previously each leg got a fixed
+    point count regardless of TOF, which meant that at the exact event time the
+    frontend indexed to a trajectory point that was one or more physical time-steps
+    off from where the planet actually was.
+
+    Construction:
+      1. For each leg, solve Lambert (trying both branches) and apply a linear
+         blend to exactly close on r2 under Kepler propagation.
+      2. Cache the Lambert v1 and the leg's start time.
+      3. Sample the whole mission at t_i = i * dt_sec for i in [0, N-1], where
+         dt_sec is chosen so each step is ~1/POINTS_PER_YEAR of a year.
+      4. For each sample time, find the owning leg and propagate from its r1 by
+         the time-within-leg. Apply the same linear blend that the per-leg path
+         uses so legs still close on their Lambert endpoints exactly.
+    """
+    if len(events) < 2:
+        return []
+
+    # Pre-solve each leg's Lambert + blend parameters.
+    legs: List[Dict[str, Any]] = []
+    cumulative_sec = 0.0
     for i in range(len(events) - 1):
         ev_a = events[i]
         ev_b = events[i + 1]
         r1 = np.asarray(_planet_state(ev_a["body"], ev_a["_date_obj"])[:3])
         r2 = np.asarray(_planet_state(ev_b["body"], ev_b["_date_obj"])[:3])
         tof_sec = (ev_b["_date_obj"] - ev_a["_date_obj"]).total_seconds()
-        arc = _lambert_arc(r1, r2, tof_sec, n_points=POINTS_PER_LEG)
-        # Avoid duplicating the junction point between legs
-        if i > 0:
-            arc = arc[1:]
-        trajectory.extend(arc)
+
+        # Pick the Lambert branch that closes on r2 under Kepler propagation.
+        best_v1 = None
+        best_err = np.inf
+        for prograde in (True, False):
+            try:
+                v1, _ = solve_lambert(r1, r2, tof_sec, MU_SUN, prograde=prograde)
+            except Exception:
+                continue
+            r_end, _ = propagate_kepler(r1.copy(), v1.copy(), tof_sec, MU_SUN)
+            err = float(np.linalg.norm(r_end - r2))
+            if err < best_err:
+                best_err = err
+                best_v1 = v1
+                best_rend = r_end
+
+        if best_v1 is None:
+            # Degenerate leg — fall back to linear interpolation.
+            legs.append({
+                "fallback_linear": True,
+                "r1": r1, "r2": r2, "tof_sec": tof_sec,
+                "t_start_sec": cumulative_sec,
+            })
+        else:
+            residual = r2 - best_rend  # error to absorb via linear blend
+            legs.append({
+                "fallback_linear": False,
+                "r1": r1, "r2": r2, "v1": best_v1,
+                "tof_sec": tof_sec,
+                "residual": residual,
+                "t_start_sec": cumulative_sec,
+            })
+        cumulative_sec += tof_sec
+
+    total_tof_sec = cumulative_sec
+    total_tof_years = total_tof_sec / (365.25 * 86400.0)
+    n_points = max(MIN_POINTS_PER_LEG * len(legs),
+                   int(round(POINTS_PER_YEAR * total_tof_years)) + 1)
+    if n_points < 2:
+        n_points = 2
+
+    # Leg start times in ascending order for bisect.
+    leg_starts = [leg["t_start_sec"] for leg in legs]
+
+    import bisect
+    trajectory: List[List[float]] = []
+    for i in range(n_points):
+        t = (i / (n_points - 1)) * total_tof_sec if n_points > 1 else 0.0
+
+        # Find owning leg: the last leg with t_start_sec <= t
+        idx = bisect.bisect_right(leg_starts, t) - 1
+        idx = max(0, min(idx, len(legs) - 1))
+        leg = legs[idx]
+
+        t_within = t - leg["t_start_sec"]
+        if leg["fallback_linear"]:
+            frac = t_within / leg["tof_sec"] if leg["tof_sec"] > 0 else 0.0
+            r = leg["r1"] + frac * (leg["r2"] - leg["r1"])
+        elif abs(t_within) < 1.0:
+            # First sample of a leg — propagate_kepler's universal variable
+            # series is unstable at dt=0; just use r1.
+            r = leg["r1"].copy()
+        else:
+            r, _ = propagate_kepler(leg["r1"].copy(), leg["v1"].copy(),
+                                    t_within, MU_SUN)
+            frac = t_within / leg["tof_sec"] if leg["tof_sec"] > 0 else 0.0
+            r = r + frac * leg["residual"]
+        trajectory.append(r.tolist())
     return trajectory
 
 

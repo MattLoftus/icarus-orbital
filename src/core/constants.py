@@ -78,20 +78,27 @@ BODIES = {
 # Format: {a_au, e, i_deg, om_deg, w_deg, ma_deg, epoch_jd}
 # Elements from JPL Small-Body Database, epoch JD 2460200.5 (2023-Sep-13)
 KEPLERIAN_BODIES = {
+    # Uranus & Neptune use J2000-epoch elements (Standish 1992) so the backend's
+    # planet positions agree with the frontend's orbits.ts client model. The
+    # previous values had 2023 epoch labels but J2000-era mean anomalies, which
+    # placed the planets ~260° off from reality at all times.
     'uranus': {
-        'a_au': 19.189, 'e': 0.0473, 'i_deg': 0.773,
-        'om_deg': 74.02, 'w_deg': 96.93, 'ma_deg': 142.24,
-        'epoch_jd': 2460200.5, 'period_days': 30687,
+        'a_au': 19.18916464, 'e': 0.04725744, 'i_deg': 0.77263783,
+        'om_deg': 74.01692503, 'w_deg': 96.93735127,    # w = 170.95427630 - 74.01692503
+        'ma_deg': 142.28382821,                          # M at J2000 = L - varpi = 313.23810451 - 170.95427630
+        'epoch_jd': 2451545.0, 'period_days': 30685.4,
     },
     'neptune': {
-        'a_au': 30.070, 'e': 0.0086, 'i_deg': 1.770,
-        'om_deg': 131.78, 'w_deg': 273.19, 'ma_deg': 259.88,
-        'epoch_jd': 2460200.5, 'period_days': 60190,
+        'a_au': 30.06992276, 'e': 0.00859048, 'i_deg': 1.77004347,
+        'om_deg': 131.78422574, 'w_deg': 273.18053653,   # w = 44.96476227 - 131.78422574 + 360
+        'ma_deg': 259.91520804,                           # M at J2000 = L - varpi = -55.12002969 - 44.96476227 + 360
+        'epoch_jd': 2451545.0, 'period_days': 60189.0,
     },
     'pluto': {
-        'a_au': 39.482, 'e': 0.2488, 'i_deg': 17.16,
-        'om_deg': 110.30, 'w_deg': 113.83, 'ma_deg': 38.65,
-        'epoch_jd': 2460200.5, 'period_days': 90560,
+        'a_au': 39.48168677, 'e': 0.24880766, 'i_deg': 17.14175,
+        'om_deg': 110.30347, 'w_deg': 113.76329,   # w = varpi - Omega
+        'ma_deg': 14.86228,                         # M at J2000 = L - varpi
+        'epoch_jd': 2451545.0, 'period_days': 90560,
     },
     'ceres': {
         'a_au': 2.7670, 'e': 0.0785, 'i_deg': 10.587,
