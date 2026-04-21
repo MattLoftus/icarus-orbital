@@ -91,12 +91,13 @@ const PROPULSION_META: Record<PropulsionType, { label: string; accent: string }>
   hybrid: { label: 'Hybrid', accent: '#a855f7' },
 };
 
-function chipStyle(active: boolean): React.CSSProperties {
+function chipStyle(active: boolean, accent?: string): React.CSSProperties {
+  const activeBg = accent ?? 'var(--text-secondary)';
   return {
     padding: '3px 9px',
-    background: active ? 'var(--text-secondary)' : 'transparent',
-    color: active ? 'var(--bg)' : 'var(--text-dim)',
-    border: '1px solid var(--panel-border)',
+    background: active ? activeBg : 'transparent',
+    color: active ? '#000' : (accent ?? 'var(--text-dim)'),
+    border: `1px solid ${active ? activeBg : (accent ? `${accent}66` : 'var(--panel-border)')}`,
     borderRadius: '10px',
     cursor: 'pointer',
     fontFamily: 'var(--font-mono)',
@@ -565,7 +566,11 @@ export function Sidebar() {
                   All
                 </button>
                 {availablePropulsions.map(p => (
-                  <button key={p} onClick={() => setLibPropulsion(p)} style={chipStyle(libPropulsion === p)}>
+                  <button
+                    key={p}
+                    onClick={() => setLibPropulsion(p)}
+                    style={chipStyle(libPropulsion === p, PROPULSION_META[p].accent)}
+                  >
                     {PROPULSION_META[p].label}
                   </button>
                 ))}
