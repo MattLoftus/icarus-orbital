@@ -71,6 +71,78 @@ def compute_flyby(v_in_helio: np.ndarray, v_body: np.ndarray,
     return v_out_helio, delta, dv_free
 
 
+def sample_hyperbolic_swingby(v_inf_in: np.ndarray, v_inf_out: np.ndarray,
+                              mu_body: float, rp: float,
+                              n_samples: int = 80,
+                              theta_frac: float = 0.93
+                              ) -> Tuple[np.ndarray, np.ndarray]:
+    """Sample a hyperbolic flyby in the planetocentric frame.
+
+    Given the incoming and outgoing v-infinity vectors (relative to the flyby body)
+    and the periapsis radius, return positions and times along the hyperbolic arc
+    from (approximately) the asymptotic approach through periapsis to the
+    asymptotic departure.
+
+    Args:
+        v_inf_in:  Incoming v-infinity vector, planet frame (km/s)
+        v_inf_out: Outgoing v-infinity vector, planet frame (km/s)
+        mu_body:   Planet gravitational parameter (km^3/s^2)
+        rp:        Periapsis radius (km) — distance from planet center at closest approach
+        n_samples: number of points to return
+        theta_frac: fraction of the asymptote angle theta_inf to sample out to
+                    (0 < theta_frac < 1; 0.93 stays safely inside the infinity asymptote)
+
+    Returns:
+        positions (n_samples, 3): planetocentric positions (km)
+        times (n_samples,): time offsets from periapsis (s), monotonically increasing
+    """
+    v_inf_mag = float((np.linalg.norm(v_inf_in) + np.linalg.norm(v_inf_out)) / 2.0)
+    if v_inf_mag < 1e-6:
+        return np.zeros((n_samples, 3)), np.zeros(n_samples)
+
+    a = -mu_body / v_inf_mag**2              # semi-major axis (negative for hyperbola)
+    e = 1.0 + rp * v_inf_mag**2 / mu_body     # eccentricity > 1
+    if e <= 1.0 + 1e-9:
+        return np.zeros((n_samples, 3)), np.zeros(n_samples)
+    theta_inf = np.arccos(-1.0 / e)
+
+    # Sample true anomaly uniformly in an asymptote-safe range.
+    theta = np.linspace(-theta_inf * theta_frac, +theta_inf * theta_frac, n_samples)
+
+    # Orbit-frame basis from the two asymptote directions.
+    vin_hat = v_inf_in / np.linalg.norm(v_inf_in)
+    vout_hat = v_inf_out / np.linalg.norm(v_inf_out)
+    diff = vout_hat - vin_hat
+    diff_mag = float(np.linalg.norm(diff))
+    if diff_mag < 1e-9:
+        # No turn — degenerate, return straight line through origin along vin_hat.
+        positions = (v_inf_mag * np.outer(theta, vin_hat)
+                     / (2 * np.pi) * rp)  # symbolic, not physical
+        return positions, theta * 0.0
+
+    x_hat = diff / diff_mag                    # periapsis direction
+    sum_v = vin_hat + vout_hat
+    sum_mag = float(np.linalg.norm(sum_v))
+    y_hat = sum_v / sum_mag if sum_mag > 1e-9 else np.cross(x_hat, np.array([0.0, 0.0, 1.0]))
+    y_hat = y_hat / np.linalg.norm(y_hat)
+    R = np.column_stack([x_hat, y_hat])        # 3x2: orbit-plane → 3D
+
+    # Conic equation for position; r is always positive.
+    r = a * (1 - e**2) / (1 + e * np.cos(theta))   # km
+    x_orbit = r * np.cos(theta)                     # (n,)
+    y_orbit = r * np.sin(theta)                     # (n,)
+    positions = (R @ np.vstack([x_orbit, y_orbit])).T   # (n, 3)
+
+    # Time since periapsis for each theta using the hyperbolic Kepler equation.
+    # cosh(H) = (e + cos(theta)) / (1 + e*cos(theta))
+    cos_H = (e + np.cos(theta)) / (1 + e * np.cos(theta))
+    cos_H = np.clip(cos_H, 1.0, None)
+    H = np.sign(theta) * np.arccosh(cos_H)    # hyperbolic anomaly, signed by theta
+    n_mean = np.sqrt(mu_body / abs(a)**3)
+    times = (e * np.sinh(H) - H) / n_mean      # time offset from periapsis (s)
+    return positions, times
+
+
 def max_deflection(v_inf_mag: float, mu_body: float, rp_min: float) -> float:
     """Maximum deflection angle achievable at a given v-infinity and minimum periapsis.
 

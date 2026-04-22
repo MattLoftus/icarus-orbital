@@ -122,12 +122,28 @@ export interface MissionEvent {
   dv_gained: number;
 }
 
+export interface FlybyCinematic {
+  event_index: number;
+  body: string;
+  date: string;
+  v_inf_km_s: number;
+  turn_angle_deg: number;
+  periapsis_km: number;
+  periapsis_altitude_km: number;
+  window_start_progress: number;
+  window_end_progress: number;
+  event_progress: number;
+  hyperbola_positions: [number, number, number][];
+  hyperbola_progress: number[];
+}
+
 export interface ReferenceMission {
   name: string;
   description: string;
   sequence: string[];
   events: MissionEvent[];
   trajectory_positions: [number, number, number][];
+  flybys?: FlybyCinematic[];
 }
 
 export async function getReferenceMissions(): Promise<ReferenceMission[]> {

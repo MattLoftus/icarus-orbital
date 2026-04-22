@@ -156,23 +156,62 @@ function FlybyMarker({ position, body, isLaunch, isArrival }: {
   );
 }
 
-function TransferArc({ positions, progress, events }: {
+function TransferArc({ positions, progress, events, flybys, activeFlybyIndex }: {
   positions: [number, number, number][];
   progress: number;
   events?: any[];
+  flybys?: Array<{
+    body: string;
+    window_start_progress: number;
+    window_end_progress: number;
+    event_progress: number;
+    hyperbola_positions: [number, number, number][];
+    hyperbola_progress: number[];
+  }>;
+  activeFlybyIndex?: number | null;
 }) {
   const allPoints = useMemo(() => positions.map(p => new THREE.Vector3(...toScene(p))), [positions]);
+
+  // All hyperbola arcs (for static rendering — always visible as part of the path)
+  const hyperbolaArcs = useMemo(() => {
+    if (!flybys) return [];
+    return flybys.map(fb => fb.hyperbola_positions.map(p => new THREE.Vector3(...toScene(p))));
+  }, [flybys]);
 
   const cutIdx = Math.max(1, Math.floor(progress * (allPoints.length - 1)));
   const traversed = allPoints.slice(0, cutIdx + 1);
   const remaining = allPoints.slice(cutIdx);
 
+  // Default spacecraft position — interpolated along the main trajectory.
   const t = progress * (allPoints.length - 1);
   const i = Math.floor(t);
   const frac = t - i;
-  const scPos = i < allPoints.length - 1
+  let scPos = i < allPoints.length - 1
     ? new THREE.Vector3().lerpVectors(allPoints[i], allPoints[i + 1], frac)
     : allPoints[allPoints.length - 1];
+
+  // If in a flyby window, override with hyperbola-interpolated position.
+  if (activeFlybyIndex != null && flybys && flybys[activeFlybyIndex]) {
+    const fb = flybys[activeFlybyIndex];
+    const hp = fb.hyperbola_progress;
+    const arc = hyperbolaArcs[activeFlybyIndex];
+    if (hp.length >= 2 && arc && arc.length === hp.length) {
+      if (progress <= hp[0]) {
+        scPos = arc[0];
+      } else if (progress >= hp[hp.length - 1]) {
+        scPos = arc[arc.length - 1];
+      } else {
+        let lo = 0, hi = hp.length - 1;
+        while (lo < hi - 1) {
+          const mid = (lo + hi) >> 1;
+          if (hp[mid] <= progress) lo = mid; else hi = mid;
+        }
+        const a = hp[lo], b = hp[hi];
+        const f = b > a ? (progress - a) / (b - a) : 0;
+        scPos = new THREE.Vector3().lerpVectors(arc[lo], arc[hi], f);
+      }
+    }
+  }
 
   // Compute flyby marker positions from events (reference missions)
   const flybyMarkers = useMemo(() => {
@@ -205,6 +244,18 @@ function TransferArc({ positions, progress, events }: {
       {progress > 0 && traversed.length >= 2 && <Line points={traversed} color="#44eedd" lineWidth={2} />}
       {/* Remaining */}
       {progress > 0 && remaining.length >= 2 && <Line points={remaining} color="#22b8a0" lineWidth={1} transparent opacity={0.26} />}
+
+      {/* Hyperbolic flyby arcs — drawn over the Lambert approximation near each planet */}
+      {hyperbolaArcs.map((arc, idx) => (
+        arc.length >= 2 ? (
+          <Line
+            key={`hyp-${idx}`} points={arc}
+            color={activeFlybyIndex === idx ? '#ffcc44' : '#ff8a3c'}
+            lineWidth={activeFlybyIndex === idx ? 2.5 : 1.2}
+            transparent opacity={activeFlybyIndex === idx ? 1 : 0.45}
+          />
+        ) : null
+      ))}
 
       {/* Flyby markers (from reference missions) */}
       {flybyMarkers.map((m, idx) => (
@@ -239,19 +290,51 @@ function TransferArc({ positions, progress, events }: {
 }
 
 function AnimationDriver() {
-  const { animationPlaying, animationProgress, transfer, setAnimationProgress, setAnimationPlaying } = useStore();
   useFrame((_, delta) => {
+    const s = useStore.getState();
+    const { animationPlaying, animationProgress, transfer,
+            setAnimationProgress, setAnimationPlaying,
+            cinematicMode, referenceMission, activeFlybyIndex, setActiveFlybyIndex } = s;
+    const flybys = referenceMission?.flybys as Array<{
+      window_start_progress: number; window_end_progress: number;
+    }> | undefined;
+
+    if (cinematicMode && flybys && flybys.length > 0) {
+      // Pad detection so playback slowdown can kick in before the narrow
+      // physical window (otherwise one frame at normal speed overshoots it).
+      // Use a minimum padding of 0.003 of mission progress.
+      let found: number | null = null;
+      for (let i = 0; i < flybys.length; i++) {
+        const f = flybys[i];
+        const w = f.window_end_progress - f.window_start_progress;
+        const pad = Math.max(0.003 - w / 2, 0);
+        if (animationProgress >= f.window_start_progress - pad &&
+            animationProgress <= f.window_end_progress + pad) {
+          found = i;
+          break;
+        }
+      }
+      if (found !== activeFlybyIndex) setActiveFlybyIndex(found);
+    } else if (activeFlybyIndex !== null) {
+      setActiveFlybyIndex(null);
+    }
+
     if (!animationPlaying) return;
-    // Estimate mission duration to scale playback speed
+
     let tofDays = transfer?.tof_days || 0;
     if (tofDays <= 0 && transfer?.departure_utc && transfer?.arrival_utc) {
       const dep = new Date(transfer.departure_utc).getTime();
       const arr = new Date(transfer.arrival_utc).getTime();
       tofDays = Math.max(1, (arr - dep) / 86400000);
     }
-    // Scale: short transfers (~300d) play in ~15s, long missions (~4000d+) play in ~30s
     const targetSeconds = tofDays > 2000 ? 30 : tofDays > 500 ? 20 : 15;
-    const speed = 1 / targetSeconds;
+    let speed = 1 / targetSeconds;
+    if (cinematicMode && activeFlybyIndex !== null && flybys) {
+      const f = flybys[activeFlybyIndex];
+      const windowWidth = Math.max(1e-6, f.window_end_progress - f.window_start_progress);
+      const cinematicSpeed = windowWidth / 6;  // ~6s to cross the window
+      speed = Math.min(speed, cinematicSpeed);
+    }
     const p = animationProgress + delta * speed;
     if (p >= 1) { setAnimationProgress(1); setAnimationPlaying(false); }
     else { setAnimationProgress(p); }
@@ -335,6 +418,63 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
   const { camera } = useThree();
   const { cameraTarget, cameraPreset, setCameraTarget, setCameraPreset } = useStore();
   const controlsRef = useRef<any>(null);
+  const priorCamRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const lastActiveRef = useRef<number | null>(null);
+
+  useFrame((_, delta) => {
+    // Read current state directly each frame — react-three-fiber's render loop
+    // runs outside React's normal rerender cycle, so destructured hook values
+    // can become stale. useStore.getState() always gives the latest snapshot.
+    const state = useStore.getState();
+    const activeFlybyIndex = state.activeFlybyIndex;
+    const referenceMission = state.referenceMission;
+    const flybys = referenceMission?.flybys as any[] | undefined;
+
+    // Enter/exit transitions
+    if (activeFlybyIndex !== lastActiveRef.current) {
+      if (activeFlybyIndex !== null && priorCamRef.current === null) {
+        priorCamRef.current = {
+          pos: camera.position.clone(),
+          target: controlsRef.current?.target?.clone() ?? new THREE.Vector3(0, 0, 0),
+        };
+      }
+      lastActiveRef.current = activeFlybyIndex;
+    }
+
+    if (activeFlybyIndex !== null && flybys && flybys[activeFlybyIndex]) {
+      // Target the hyperbola's midpoint — that's exactly where the planet is
+      // during the encounter (in heliocentric coordinates), and doesn't depend
+      // on the animated-planets prop being current.
+      const fb = flybys[activeFlybyIndex];
+      const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
+      if (mid) {
+        const ppos = toScene(mid as [number, number, number]);
+        const targetPos = new THREE.Vector3(ppos[0], ppos[1], ppos[2]);
+        const rAU = Math.hypot(mid[0], mid[1], mid[2]) / 1.495978707e8;
+        // Planets render at exaggerated sizes, so we need more distance than
+        // the physical swing-by span implies.
+        const off = Math.max(0.5, rAU * 0.1);
+        const desiredCam = targetPos.clone().add(new THREE.Vector3(off, off * 0.4, off * 0.6));
+        const k = 1 - Math.exp(-delta * 2.5);
+        camera.position.lerp(desiredCam, k);
+        if (controlsRef.current) {
+          controlsRef.current.target.lerp(targetPos, k);
+          controlsRef.current.update();
+        }
+      }
+    } else if (priorCamRef.current) {
+      // Ease back out to the prior camera state after the flyby.
+      const k = 1 - Math.exp(-delta * 2);
+      camera.position.lerp(priorCamRef.current.pos, k);
+      if (controlsRef.current) {
+        controlsRef.current.target.lerp(priorCamRef.current.target, k);
+        controlsRef.current.update();
+      }
+      if (camera.position.distanceTo(priorCamRef.current.pos) < 0.02) {
+        priorCamRef.current = null;
+      }
+    }
+  });
 
   useEffect(() => {
     if (!cameraPreset) return;
@@ -377,7 +517,7 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
 }
 
 function Scene() {
-  const { planets, orbits, transfer, animationProgress, referenceMission } = useStore();
+  const { planets, orbits, transfer, animationProgress, referenceMission, activeFlybyIndex } = useStore();
 
   // Compute animated planet positions when a transfer is active
   // During animation, interpolate the current date and compute positions client-side
@@ -425,6 +565,8 @@ function Scene() {
           positions={transfer.trajectory_positions}
           progress={animationProgress}
           events={referenceMission?.events}
+          flybys={referenceMission?.flybys}
+          activeFlybyIndex={activeFlybyIndex}
         />
       )}
 
@@ -438,7 +580,8 @@ function Scene() {
 
 function CameraControls() {
   const { setCameraPreset, setCameraTarget, transfer, animationPlaying, animationProgress,
-          setAnimationPlaying, setAnimationProgress } = useStore();
+          setAnimationPlaying, setAnimationProgress,
+          cinematicMode, setCinematicMode, referenceMission, activeFlybyIndex } = useStore();
 
   const presets: { key: CameraPreset; label: string }[] = [
     { key: 'default', label: 'Persp' },
@@ -493,7 +636,7 @@ function CameraControls() {
           }}>
             {animationPlaying ? '❚❚' : '▶'}
           </button>
-          <input type="range" min="0" max="1" step="0.002" value={animationProgress}
+          <input type="range" min="0" max="1" step="0.0002" value={animationProgress}
             onChange={(e) => { setAnimationProgress(parseFloat(e.target.value)); setAnimationPlaying(false); }}
             style={{ width: '200px', accentColor: 'var(--cyan)' }}
           />
@@ -502,6 +645,22 @@ function CameraControls() {
               ? interpolateDate(transfer.departure_utc.slice(0, 10), transfer.arrival_utc.slice(0, 10), animationProgress)
               : `Day ${Math.round(animationProgress * (transfer?.tof_days || 0))}`}
           </span>
+          {referenceMission?.flybys && referenceMission.flybys.length > 0 && (
+            <button
+              onClick={() => setCinematicMode(!cinematicMode)}
+              title="Zoom in and slow down at each gravity-assist flyby"
+              style={{
+                padding: '3px 8px', background: cinematicMode ? 'var(--cyan)' : 'transparent',
+                border: '1px solid var(--cyan)', borderRadius: '3px',
+                color: cinematicMode ? '#000' : 'var(--cyan)',
+                fontSize: '9px', fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.6px', textTransform: 'uppercase',
+                cursor: 'pointer', fontWeight: 600,
+              }}
+            >
+              ◉ Cine {activeFlybyIndex !== null ? '•' : ''}
+            </button>
+          )}
         </div>
       )}
     </>

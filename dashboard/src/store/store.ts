@@ -101,6 +101,10 @@ interface AppState {
   setAnimationProgress: (p: number) => void;
   animationPlaying: boolean;
   setAnimationPlaying: (p: boolean) => void;
+  cinematicMode: boolean;
+  setCinematicMode: (v: boolean) => void;
+  activeFlybyIndex: number | null; // index into referenceMission.flybys[] or null
+  setActiveFlybyIndex: (i: number | null) => void;
 
   // Reference mission (full data for timeline/flyby markers)
   referenceMission: any | null;
@@ -173,6 +177,10 @@ export const useStore = create<AppState>((set) => ({
   setAnimationProgress: (p) => set({ animationProgress: p }),
   animationPlaying: false,
   setAnimationPlaying: (p) => set({ animationPlaying: p }),
+  cinematicMode: true,
+  setCinematicMode: (v) => set({ cinematicMode: v }),
+  activeFlybyIndex: null,
+  setActiveFlybyIndex: (i) => set({ activeFlybyIndex: i }),
 
   referenceMission: null,
   setReferenceMission: (m) => set({ referenceMission: m }),

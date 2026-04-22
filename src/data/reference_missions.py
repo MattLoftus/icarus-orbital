@@ -19,7 +19,7 @@ positions it was supposed to fly by.
 """
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -27,12 +27,14 @@ import numpy as np
 from src.core.ephemeris import get_body_state, utc_to_et
 from src.core.lambert import solve_lambert
 from src.core.propagate import propagate_kepler
-from src.core.constants import MU_SUN
+from src.core.flyby import sample_hyperbolic_swingby
+from src.core.constants import MU_SUN, BODIES
 
 AU_KM = 1.495978707e8
 
 POINTS_PER_YEAR = 200  # trajectory points per year of mission time
 MIN_POINTS_PER_LEG = 10
+CINEMATIC_SAMPLES = 80  # points per flyby swing-by arc
 
 
 # ---------------------------------------------------------------------------
@@ -97,30 +99,8 @@ def _lambert_arc(r1: np.ndarray, r2: np.ndarray, tof_sec: float,
     return points
 
 
-def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
-    """Build a trajectory that is strictly uniform in time.
-
-    The frontend animates by array index (spacecraft at `trajectory[floor(p*(N-1))]`)
-    and computes the current date by linear time interpolation over (depDate, arrDate),
-    so the trajectory must be uniform in *time*. Previously each leg got a fixed
-    point count regardless of TOF, which meant that at the exact event time the
-    frontend indexed to a trajectory point that was one or more physical time-steps
-    off from where the planet actually was.
-
-    Construction:
-      1. For each leg, solve Lambert (trying both branches) and apply a linear
-         blend to exactly close on r2 under Kepler propagation.
-      2. Cache the Lambert v1 and the leg's start time.
-      3. Sample the whole mission at t_i = i * dt_sec for i in [0, N-1], where
-         dt_sec is chosen so each step is ~1/POINTS_PER_YEAR of a year.
-      4. For each sample time, find the owning leg and propagate from its r1 by
-         the time-within-leg. Apply the same linear blend that the per-leg path
-         uses so legs still close on their Lambert endpoints exactly.
-    """
-    if len(events) < 2:
-        return []
-
-    # Pre-solve each leg's Lambert + blend parameters.
+def _presolve_legs(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """For each leg, solve Lambert (try both branches) and store r1/r2/v1/v_end/residual."""
     legs: List[Dict[str, Any]] = []
     cumulative_sec = 0.0
     for i in range(len(events) - 1):
@@ -130,66 +110,62 @@ def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
         r2 = np.asarray(_planet_state(ev_b["body"], ev_b["_date_obj"])[:3])
         tof_sec = (ev_b["_date_obj"] - ev_a["_date_obj"]).total_seconds()
 
-        # Pick the Lambert branch that closes on r2 under Kepler propagation.
         best_v1 = None
+        best_v_end = None
         best_err = np.inf
+        best_rend = None
         for prograde in (True, False):
             try:
                 v1, _ = solve_lambert(r1, r2, tof_sec, MU_SUN, prograde=prograde)
             except Exception:
                 continue
-            r_end, _ = propagate_kepler(r1.copy(), v1.copy(), tof_sec, MU_SUN)
+            r_end, v_end = propagate_kepler(r1.copy(), v1.copy(), tof_sec, MU_SUN)
             err = float(np.linalg.norm(r_end - r2))
             if err < best_err:
                 best_err = err
                 best_v1 = v1
+                best_v_end = v_end
                 best_rend = r_end
 
         if best_v1 is None:
-            # Degenerate leg — fall back to linear interpolation.
-            legs.append({
-                "fallback_linear": True,
-                "r1": r1, "r2": r2, "tof_sec": tof_sec,
-                "t_start_sec": cumulative_sec,
-            })
+            legs.append({"fallback_linear": True, "r1": r1, "r2": r2,
+                         "tof_sec": tof_sec, "t_start_sec": cumulative_sec})
         else:
-            residual = r2 - best_rend  # error to absorb via linear blend
             legs.append({
                 "fallback_linear": False,
-                "r1": r1, "r2": r2, "v1": best_v1,
+                "r1": r1, "r2": r2,
+                "v1": best_v1, "v_end": best_v_end,
                 "tof_sec": tof_sec,
-                "residual": residual,
+                "residual": r2 - best_rend,
                 "t_start_sec": cumulative_sec,
             })
         cumulative_sec += tof_sec
+    return legs
 
-    total_tof_sec = cumulative_sec
+
+def _sample_trajectory(legs: List[Dict[str, Any]]) -> List[List[float]]:
+    """Sample the full mission trajectory at strictly uniform global times."""
+    if not legs:
+        return []
+    total_tof_sec = legs[-1]["t_start_sec"] + legs[-1]["tof_sec"]
     total_tof_years = total_tof_sec / (365.25 * 86400.0)
     n_points = max(MIN_POINTS_PER_LEG * len(legs),
                    int(round(POINTS_PER_YEAR * total_tof_years)) + 1)
     if n_points < 2:
         n_points = 2
 
-    # Leg start times in ascending order for bisect.
     leg_starts = [leg["t_start_sec"] for leg in legs]
-
     import bisect
     trajectory: List[List[float]] = []
     for i in range(n_points):
         t = (i / (n_points - 1)) * total_tof_sec if n_points > 1 else 0.0
-
-        # Find owning leg: the last leg with t_start_sec <= t
-        idx = bisect.bisect_right(leg_starts, t) - 1
-        idx = max(0, min(idx, len(legs) - 1))
+        idx = max(0, min(bisect.bisect_right(leg_starts, t) - 1, len(legs) - 1))
         leg = legs[idx]
-
         t_within = t - leg["t_start_sec"]
         if leg["fallback_linear"]:
             frac = t_within / leg["tof_sec"] if leg["tof_sec"] > 0 else 0.0
             r = leg["r1"] + frac * (leg["r2"] - leg["r1"])
         elif abs(t_within) < 1.0:
-            # First sample of a leg — propagate_kepler's universal variable
-            # series is unstable at dt=0; just use r1.
             r = leg["r1"].copy()
         else:
             r, _ = propagate_kepler(leg["r1"].copy(), leg["v1"].copy(),
@@ -198,6 +174,117 @@ def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
             r = r + frac * leg["residual"]
         trajectory.append(r.tolist())
     return trajectory
+
+
+def _build_trajectory(events: List[Dict[str, Any]]) -> List[List[float]]:
+    """Uniform-in-time trajectory built from Lambert + Kepler for every leg."""
+    if len(events) < 2:
+        return []
+    return _sample_trajectory(_presolve_legs(events))
+
+
+def _build_flybys(events: List[Dict[str, Any]],
+                  legs: List[Dict[str, Any]],
+                  depart_sec_from_zero: float = 0.0) -> List[Dict[str, Any]]:
+    """Compute hyperbolic swing-by cinematics for each interior flyby event.
+
+    Returns one entry per interior flyby with planetocentric hyperbola sampled and
+    transformed to heliocentric frame. The frontend swaps in this arc (and triggers
+    camera zoom + playback slow-down) while the mission progress lies inside the
+    flyby's time window.
+    """
+    total_tof_sec = legs[-1]["t_start_sec"] + legs[-1]["tof_sec"]
+    dep_dt = events[0]["_date_obj"]
+    cinematics: List[Dict[str, Any]] = []
+
+    for i, ev in enumerate(events):
+        # Only interior flybys have both an approach leg and a departure leg.
+        if i == 0 or i == len(events) - 1:
+            continue
+        if ev.get("type") not in ("flyby",):
+            continue
+
+        body = ev["body"].lower()
+        body_cfg = BODIES.get(body)
+        if body_cfg is None:
+            continue
+
+        mu_body = body_cfg["mu"]
+        body_radius = body_cfg["radius"]
+
+        leg_in = legs[i - 1]
+        leg_out = legs[i]
+        if leg_in.get("fallback_linear") or leg_out.get("fallback_linear"):
+            continue
+
+        # Heliocentric velocities at the flyby moment
+        v_in_helio = np.asarray(leg_in["v_end"])
+        v_out_helio = np.asarray(leg_out["v1"])
+        # Planet state at the event
+        state = _planet_state(ev["body"], ev["_date_obj"])
+        r_planet = state[:3]
+        v_planet = state[3:]
+
+        v_inf_in = v_in_helio - v_planet
+        v_inf_out = v_out_helio - v_planet
+        v_inf_in_mag = float(np.linalg.norm(v_inf_in))
+        v_inf_out_mag = float(np.linalg.norm(v_inf_out))
+        if v_inf_in_mag < 1e-3 or v_inf_out_mag < 1e-3:
+            continue
+        v_inf_mag = (v_inf_in_mag + v_inf_out_mag) / 2.0
+
+        # Derive the periapsis radius from the required turn angle.
+        cos_delta = float(np.dot(v_inf_in, v_inf_out) /
+                          (v_inf_in_mag * v_inf_out_mag))
+        cos_delta = max(-1.0, min(1.0, cos_delta))
+        delta = math.acos(cos_delta)
+        sin_half = math.sin(delta / 2.0)
+        if sin_half < 1e-6:
+            continue  # no meaningful deflection
+        e = 1.0 / sin_half
+        rp = mu_body * (e - 1.0) / v_inf_mag**2
+        # Safety: never go through the planet
+        rp = max(rp, body_radius * 1.05)
+
+        positions_pc, times_rel = sample_hyperbolic_swingby(
+            v_inf_in, v_inf_out, mu_body, rp,
+            n_samples=CINEMATIC_SAMPLES, theta_frac=0.93,
+        )
+
+        # Planet moves appreciably over multi-day flybys — sample its state at
+        # each hyperbola time and add to the planetocentric offset.
+        ev_et = utc_to_et(ev["_date_obj"].strftime('%Y-%m-%dT%H:%M:%S'))
+        t_event_sec_from_start = (ev["_date_obj"] - dep_dt).total_seconds()
+
+        hyperbola_heliocentric: List[List[float]] = []
+        # "progress fraction" of each sample — directly comparable to animationProgress.
+        sample_progress: List[float] = []
+        for j in range(len(times_rel)):
+            t_rel = float(times_rel[j])
+            r_p_t = get_body_state(body, ev_et + t_rel)[:3]
+            hyperbola_heliocentric.append((r_p_t + positions_pc[j]).tolist())
+            abs_sec = t_event_sec_from_start + t_rel
+            sample_progress.append(abs_sec / total_tof_sec if total_tof_sec > 0 else 0.0)
+
+        window_start_progress = max(0.0, sample_progress[0])
+        window_end_progress = min(1.0, sample_progress[-1])
+        event_progress = t_event_sec_from_start / total_tof_sec if total_tof_sec > 0 else 0.0
+
+        cinematics.append({
+            "event_index": i,
+            "body": ev["body"],
+            "date": ev["date"],
+            "v_inf_km_s": round(float(v_inf_mag), 3),
+            "turn_angle_deg": round(math.degrees(delta), 2),
+            "periapsis_km": round(float(rp), 0),
+            "periapsis_altitude_km": round(float(rp - body_radius), 0),
+            "window_start_progress": window_start_progress,
+            "window_end_progress": window_end_progress,
+            "event_progress": event_progress,
+            "hyperbola_positions": hyperbola_heliocentric,
+            "hyperbola_progress": sample_progress,
+        })
+    return cinematics
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +336,9 @@ def _voyager2() -> Dict[str, Any]:
         },
     ]
 
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
 
     public_events = _make_public_events(events)
 
@@ -264,6 +353,7 @@ def _voyager2() -> Dict[str, Any]:
         "sequence": ["Earth", "Jupiter", "Saturn", "Uranus", "Neptune"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -320,7 +410,9 @@ def _cassini() -> Dict[str, Any]:
         },
     ]
 
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
 
     public_events = _make_public_events(events)
 
@@ -335,6 +427,7 @@ def _cassini() -> Dict[str, Any]:
         "sequence": ["Earth", "Venus", "Venus", "Earth", "Jupiter", "Saturn"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -351,7 +444,9 @@ def _new_horizons() -> Dict[str, Any]:
          "distance_km": 12500, "dv_gained_km_s": 0.0,
          "_date_obj": datetime(2015, 7, 14)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "New Horizons",
@@ -364,6 +459,7 @@ def _new_horizons() -> Dict[str, Any]:
         "sequence": ["Earth", "Jupiter", "Pluto"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -386,7 +482,9 @@ def _galileo() -> Dict[str, Any]:
          "distance_km": None, "dv_gained_km_s": None,
          "_date_obj": datetime(1995, 12, 7)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "Galileo VEEGA",
@@ -399,6 +497,7 @@ def _galileo() -> Dict[str, Any]:
         "sequence": ["Earth", "Venus", "Earth", "Earth", "Jupiter"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -415,7 +514,9 @@ def _mariner10() -> Dict[str, Any]:
          "distance_km": 703, "dv_gained_km_s": 0.0,
          "_date_obj": datetime(1974, 3, 29)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "Mariner 10",
@@ -428,6 +529,7 @@ def _mariner10() -> Dict[str, Any]:
         "sequence": ["Earth", "Venus", "Mercury"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -444,7 +546,9 @@ def _juno() -> Dict[str, Any]:
          "distance_km": None, "dv_gained_km_s": None,
          "_date_obj": datetime(2016, 7, 5)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "Juno",
@@ -457,6 +561,7 @@ def _juno() -> Dict[str, Any]:
         "sequence": ["Earth", "Earth", "Jupiter"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -470,7 +575,9 @@ def _pioneer10() -> Dict[str, Any]:
          "distance_km": 132252, "dv_gained_km_s": 11.0,
          "_date_obj": datetime(1973, 12, 3)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "Pioneer 10",
@@ -484,6 +591,7 @@ def _pioneer10() -> Dict[str, Any]:
         "sequence": ["Earth", "Jupiter"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
@@ -515,7 +623,9 @@ def _messenger() -> Dict[str, Any]:
          "distance_km": None, "dv_gained_km_s": None,
          "_date_obj": datetime(2011, 3, 18)},
     ]
-    trajectory = _build_trajectory(events)
+    legs = _presolve_legs(events)
+    trajectory = _sample_trajectory(legs)
+    flybys = _build_flybys(events, legs)
     public_events = _make_public_events(events)
     return {
         "name": "MESSENGER",
@@ -529,6 +639,7 @@ def _messenger() -> Dict[str, Any]:
         "sequence": ["Earth", "Earth", "Venus", "Venus", "Mercury", "Mercury", "Mercury", "Mercury"],
         "events": public_events,
         "trajectory_positions": trajectory,
+        "flybys": flybys,
     }
 
 
