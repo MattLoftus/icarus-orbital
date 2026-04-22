@@ -420,51 +420,84 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
   const controlsRef = useRef<any>(null);
   const priorCamRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
   const lastActiveRef = useRef<number | null>(null);
+  // Stable basis for camera offset — chosen at flyby entry so the camera doesn't
+  // tumble as the planet's heliocentric position drifts frame-to-frame.
+  const flybyBasisRef = useRef<{ planetPos: THREE.Vector3; offsetDir: THREE.Vector3 } | null>(null);
 
   useFrame((_, delta) => {
-    // Read current state directly each frame — react-three-fiber's render loop
-    // runs outside React's normal rerender cycle, so destructured hook values
-    // can become stale. useStore.getState() always gives the latest snapshot.
     const state = useStore.getState();
     const activeFlybyIndex = state.activeFlybyIndex;
+    const animationProgress = state.animationProgress;
     const referenceMission = state.referenceMission;
     const flybys = referenceMission?.flybys as any[] | undefined;
 
-    // Enter/exit transitions
     if (activeFlybyIndex !== lastActiveRef.current) {
-      if (activeFlybyIndex !== null && priorCamRef.current === null) {
-        priorCamRef.current = {
-          pos: camera.position.clone(),
-          target: controlsRef.current?.target?.clone() ?? new THREE.Vector3(0, 0, 0),
-        };
+      if (activeFlybyIndex !== null) {
+        if (priorCamRef.current === null) {
+          priorCamRef.current = {
+            pos: camera.position.clone(),
+            target: controlsRef.current?.target?.clone() ?? new THREE.Vector3(0, 0, 0),
+          };
+        }
+        // Pick a stable camera-offset direction at entry so the camera frames
+        // the planet from a fixed viewpoint throughout the flyby (no tumbling).
+        if (flybys && flybys[activeFlybyIndex]) {
+          const fb = flybys[activeFlybyIndex];
+          const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
+          const planetPos = new THREE.Vector3(...toScene(mid));
+          const toCam = camera.position.clone().sub(planetPos);
+          // If prior view was very close, just use a default offset
+          if (toCam.length() < 0.01) toCam.set(0.6, 0.3, 0.4);
+          flybyBasisRef.current = {
+            planetPos,
+            offsetDir: toCam.normalize(),
+          };
+        }
+      } else {
+        flybyBasisRef.current = null;
       }
       lastActiveRef.current = activeFlybyIndex;
     }
 
-    if (activeFlybyIndex !== null && flybys && flybys[activeFlybyIndex]) {
-      // Target the hyperbola's midpoint — that's exactly where the planet is
-      // during the encounter (in heliocentric coordinates), and doesn't depend
-      // on the animated-planets prop being current.
+    if (activeFlybyIndex !== null && flybys && flybys[activeFlybyIndex] && flybyBasisRef.current) {
+      // Re-fetch planet heliocentric position each frame (it drifts slightly
+      // as the animation's "currentDate" advances across the window) but use
+      // the STABLE offset direction chosen at entry.
       const fb = flybys[activeFlybyIndex];
       const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
-      if (mid) {
-        const ppos = toScene(mid as [number, number, number]);
-        const targetPos = new THREE.Vector3(ppos[0], ppos[1], ppos[2]);
-        const rAU = Math.hypot(mid[0], mid[1], mid[2]) / 1.495978707e8;
-        // Planets render at exaggerated sizes, so we need more distance than
-        // the physical swing-by span implies.
-        const off = Math.max(0.5, rAU * 0.1);
-        const desiredCam = targetPos.clone().add(new THREE.Vector3(off, off * 0.4, off * 0.6));
-        const k = 1 - Math.exp(-delta * 2.5);
-        camera.position.lerp(desiredCam, k);
-        if (controlsRef.current) {
-          controlsRef.current.target.lerp(targetPos, k);
-          controlsRef.current.update();
-        }
+      const targetPos = new THREE.Vector3(...toScene(mid));
+
+      // Progress through the flyby window in [0, 1]; 0.5 == closest approach.
+      const w0 = fb.window_start_progress as number;
+      const w1 = fb.window_end_progress as number;
+      const pad = Math.max(0.003 - (w1 - w0) / 2, 0);
+      const extStart = w0 - pad;
+      const extEnd = w1 + pad;
+      const u = Math.max(0, Math.min(1, (animationProgress - extStart) / Math.max(1e-9, extEnd - extStart)));
+      // Tight parabola (bell) — 0 at edges, 1 at midpoint — for a close-then-pull-back feel.
+      const closeness = 1 - 4 * (u - 0.5) * (u - 0.5);
+
+      // Distance scales with planet's heliocentric radius so outer planets get
+      // a wider framing. Closest distance shrinks toward periapsis; farthest
+      // at the edges of the extended window matches the pre-flyby view.
+      const rAU = Math.hypot(mid[0], mid[1], mid[2]) / 1.495978707e8;
+      const farOff = Math.max(1.5, rAU * 0.3);   // edge-of-window framing
+      const closeOff = Math.max(0.4, rAU * 0.08); // at-periapsis framing
+      const off = farOff * (1 - closeness) + closeOff * closeness;
+      const desiredCam = targetPos.clone().add(flybyBasisRef.current.offsetDir.clone().multiplyScalar(off));
+
+      // Smoothly ease position AND target. With a single consistent rate and a
+      // fixed offset direction, the camera rotates gracefully instead of jumping.
+      const k = 1 - Math.exp(-delta * 4);
+      camera.position.lerp(desiredCam, k);
+      if (controlsRef.current) {
+        controlsRef.current.target.lerp(targetPos, k);
+        controlsRef.current.update();
+      } else {
+        camera.lookAt(targetPos);
       }
     } else if (priorCamRef.current) {
-      // Ease back out to the prior camera state after the flyby.
-      const k = 1 - Math.exp(-delta * 2);
+      const k = 1 - Math.exp(-delta * 2.5);
       camera.position.lerp(priorCamRef.current.pos, k);
       if (controlsRef.current) {
         controlsRef.current.target.lerp(priorCamRef.current.target, k);

@@ -110,14 +110,20 @@ def sample_hyperbolic_swingby(v_inf_in: np.ndarray, v_inf_out: np.ndarray,
     theta = np.linspace(-theta_inf * theta_frac, +theta_inf * theta_frac, n_samples)
 
     # Orbit-frame basis from the two asymptote directions.
+    # In the orbit frame (x = periapsis direction, y = transverse in-plane),
+    # v_hat_in  = (-cos theta_inf, +sin theta_inf)  (spacecraft coming IN)
+    # v_hat_out = (+cos theta_inf, +sin theta_inf)  (spacecraft going OUT)
+    # Therefore:
+    #   v_hat_in - v_hat_out = (-2 cos theta_inf, 0).  cos theta_inf < 0, so this points +x.
+    #   v_hat_in + v_hat_out = (0, +2 sin theta_inf).  sin theta_inf > 0, so this points +y.
+    # Periapsis is +x, so x_hat = normalize(v_hat_in - v_hat_out), NOT (v_out - v_in).
     vin_hat = v_inf_in / np.linalg.norm(v_inf_in)
     vout_hat = v_inf_out / np.linalg.norm(v_inf_out)
-    diff = vout_hat - vin_hat
+    diff = vin_hat - vout_hat
     diff_mag = float(np.linalg.norm(diff))
     if diff_mag < 1e-9:
-        # No turn — degenerate, return straight line through origin along vin_hat.
         positions = (v_inf_mag * np.outer(theta, vin_hat)
-                     / (2 * np.pi) * rp)  # symbolic, not physical
+                     / (2 * np.pi) * rp)
         return positions, theta * 0.0
 
     x_hat = diff / diff_mag                    # periapsis direction
