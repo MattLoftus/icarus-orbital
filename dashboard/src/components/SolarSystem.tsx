@@ -297,22 +297,23 @@ function AnimationDriver() {
             cinematicMode, referenceMission, activeFlybyIndex, setActiveFlybyIndex } = s;
     const flybys = referenceMission?.flybys as Array<{
       window_start_progress: number; window_end_progress: number;
+      event_progress: number;
     }> | undefined;
 
     if (cinematicMode && flybys && flybys.length > 0) {
-      // Pad detection so playback slowdown can kick in before the narrow
-      // physical window (otherwise one frame at normal speed overshoots it).
-      // Use a minimum padding of 0.003 of mission progress.
+      // Detect a flyby when animationProgress is within ±CINE_HALF of the
+      // event. This is intentionally MUCH wider than the physical hyperbola
+      // window so the camera has runway to gracefully rotate and zoom in
+      // over ~1-2% of mission TOF (weeks to months, depending on mission)
+      // instead of snapping the instant progress enters the tiny (~0.001
+      // wide) physical flyby window.
+      const CINE_HALF = 0.02;
       let found: number | null = null;
+      let bestDist = CINE_HALF;
       for (let i = 0; i < flybys.length; i++) {
         const f = flybys[i];
-        const w = f.window_end_progress - f.window_start_progress;
-        const pad = Math.max(0.003 - w / 2, 0);
-        if (animationProgress >= f.window_start_progress - pad &&
-            animationProgress <= f.window_end_progress + pad) {
-          found = i;
-          break;
-        }
+        const d = Math.abs(animationProgress - f.event_progress);
+        if (d < bestDist) { bestDist = d; found = i; }
       }
       if (found !== activeFlybyIndex) setActiveFlybyIndex(found);
     } else if (activeFlybyIndex !== null) {
@@ -330,9 +331,10 @@ function AnimationDriver() {
     const targetSeconds = tofDays > 2000 ? 30 : tofDays > 500 ? 20 : 15;
     let speed = 1 / targetSeconds;
     if (cinematicMode && activeFlybyIndex !== null && flybys) {
-      const f = flybys[activeFlybyIndex];
-      const windowWidth = Math.max(1e-6, f.window_end_progress - f.window_start_progress);
-      const cinematicSpeed = windowWidth / 6;  // ~6s to cross the window
+      // Cinematic detection zone is ±0.02; traversing it in ~10 seconds gives
+      // the camera time to smoothly ramp in, hold at closest, and ramp out.
+      const CINE_HALF = 0.02;
+      const cinematicSpeed = (2 * CINE_HALF) / 10;
       speed = Math.min(speed, cinematicSpeed);
     }
     const p = animationProgress + delta * speed;
@@ -460,52 +462,62 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
     }
 
     if (activeFlybyIndex !== null && flybys && flybys[activeFlybyIndex] && flybyBasisRef.current) {
-      // Re-fetch planet heliocentric position each frame (it drifts slightly
-      // as the animation's "currentDate" advances across the window) but use
-      // the STABLE offset direction chosen at entry.
       const fb = flybys[activeFlybyIndex];
       const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
       const targetPos = new THREE.Vector3(...toScene(mid));
 
-      // Progress through the flyby window in [0, 1]; 0.5 == closest approach.
-      const w0 = fb.window_start_progress as number;
-      const w1 = fb.window_end_progress as number;
-      const pad = Math.max(0.003 - (w1 - w0) / 2, 0);
-      const extStart = w0 - pad;
-      const extEnd = w1 + pad;
-      const u = Math.max(0, Math.min(1, (animationProgress - extStart) / Math.max(1e-9, extEnd - extStart)));
-      // Tight parabola (bell) — 0 at edges, 1 at midpoint — for a close-then-pull-back feel.
-      const closeness = 1 - 4 * (u - 0.5) * (u - 0.5);
+      // Distance from the event in progress-space, normalized to [-1, 1].
+      const CINE_HALF = 0.02;
+      const u_signed = (animationProgress - fb.event_progress) / CINE_HALF;
+      const closeness = Math.max(0, 1 - u_signed * u_signed);
 
-      // Distance scales with planet's heliocentric radius so outer planets get
-      // a wider framing. Closest distance shrinks toward periapsis; farthest
-      // at the edges of the extended window matches the pre-flyby view.
+      // Radial framing scales with planet's heliocentric radius so outer
+      // planets get a wider view.
       const rAU = Math.hypot(mid[0], mid[1], mid[2]) / 1.495978707e8;
-      const farOff = Math.max(1.5, rAU * 0.3);   // edge-of-window framing
-      const closeOff = Math.max(0.4, rAU * 0.08); // at-periapsis framing
+      const farOff = Math.max(1.5, rAU * 0.3);
+      const closeOff = Math.max(0.4, rAU * 0.08);
       const off = farOff * (1 - closeness) + closeOff * closeness;
-      const desiredCam = targetPos.clone().add(flybyBasisRef.current.offsetDir.clone().multiplyScalar(off));
 
-      // Smoothly ease position AND target. With a single consistent rate and a
-      // fixed offset direction, the camera rotates gracefully instead of jumping.
-      const k = 1 - Math.exp(-delta * 4);
-      camera.position.lerp(desiredCam, k);
-      if (controlsRef.current) {
-        controlsRef.current.target.lerp(targetPos, k);
-        controlsRef.current.update();
+      // Blend the user's prior camera with the cinematic camera. At the edges
+      // of the detection zone (|u_signed| ≈ 1) we use the prior camera, so the
+      // transition is imperceptible. At center (u_signed = 0) we're at full
+      // close-up. Everything is a deterministic function of animationProgress:
+      // no ease rate, no frame-rate dependence, no catch-up stutter.
+      const cinematicCam = targetPos.clone().add(
+        flybyBasisRef.current.offsetDir.clone().multiplyScalar(off)
+      );
+      const blend = closeness;   // 0 at edge, 1 at midpoint
+
+      if (priorCamRef.current) {
+        const blendedCam = priorCamRef.current.pos.clone().lerp(cinematicCam, blend);
+        const blendedTarget = priorCamRef.current.target.clone().lerp(targetPos, blend);
+        camera.position.copy(blendedCam);
+        if (controlsRef.current) {
+          controlsRef.current.target.copy(blendedTarget);
+          controlsRef.current.update();
+        } else {
+          camera.lookAt(blendedTarget);
+        }
       } else {
-        camera.lookAt(targetPos);
+        camera.position.copy(cinematicCam);
+        if (controlsRef.current) {
+          controlsRef.current.target.copy(targetPos);
+          controlsRef.current.update();
+        } else {
+          camera.lookAt(targetPos);
+        }
       }
+      // Silence unused `delta` warning in this branch
+      void delta;
     } else if (priorCamRef.current) {
-      const k = 1 - Math.exp(-delta * 2.5);
-      camera.position.lerp(priorCamRef.current.pos, k);
+      // Leaving the detection zone — snap back to prior (blend already reached
+      // 0 at the boundary so no visible change).
+      camera.position.copy(priorCamRef.current.pos);
       if (controlsRef.current) {
-        controlsRef.current.target.lerp(priorCamRef.current.target, k);
+        controlsRef.current.target.copy(priorCamRef.current.target);
         controlsRef.current.update();
       }
-      if (camera.position.distanceTo(priorCamRef.current.pos) < 0.02) {
-        priorCamRef.current = null;
-      }
+      priorCamRef.current = null;
     }
   });
 
