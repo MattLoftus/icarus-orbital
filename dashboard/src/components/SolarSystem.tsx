@@ -463,34 +463,73 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
 
     if (activeFlybyIndex !== null && flybys && flybys[activeFlybyIndex] && flybyBasisRef.current) {
       const fb = flybys[activeFlybyIndex];
-      const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
-      const targetPos = new THREE.Vector3(...toScene(mid));
 
-      // Distance from the event in progress-space, normalized to [-1, 1].
+      // Determine the spacecraft's current position — same logic as TransferArc.
+      // During the physical hyperbola window, interpolate the hyperbola.
+      // Outside, interpolate the main trajectory positions.
+      const mainTraj = state.transfer?.trajectory_positions as [number, number, number][] | undefined;
+      let scScene = new THREE.Vector3();
+      const hp = fb.hyperbola_progress as number[];
+      const harc = fb.hyperbola_positions as [number, number, number][];
+      if (animationProgress >= hp[0] && animationProgress <= hp[hp.length - 1]) {
+        // Interpolate the hyperbola
+        let lo = 0, hi = hp.length - 1;
+        while (lo < hi - 1) {
+          const m = (lo + hi) >> 1;
+          if (hp[m] <= animationProgress) lo = m; else hi = m;
+        }
+        const f = (animationProgress - hp[lo]) / Math.max(1e-12, hp[hi] - hp[lo]);
+        const a = toScene(harc[lo]), b = toScene(harc[hi]);
+        scScene.set(
+          a[0] * (1 - f) + b[0] * f,
+          a[1] * (1 - f) + b[1] * f,
+          a[2] * (1 - f) + b[2] * f,
+        );
+      } else if (mainTraj && mainTraj.length >= 2) {
+        const t = animationProgress * (mainTraj.length - 1);
+        const i0 = Math.max(0, Math.min(Math.floor(t), mainTraj.length - 2));
+        const f = t - i0;
+        const a = toScene(mainTraj[i0]), b = toScene(mainTraj[i0 + 1]);
+        scScene.set(
+          a[0] * (1 - f) + b[0] * f,
+          a[1] * (1 - f) + b[1] * f,
+          a[2] * (1 - f) + b[2] * f,
+        );
+      }
+
+      const mid = fb.hyperbola_positions[Math.floor(fb.hyperbola_positions.length / 2)];
+      const planetPos = new THREE.Vector3(...toScene(mid));
+
       const CINE_HALF = 0.02;
       const u_signed = (animationProgress - fb.event_progress) / CINE_HALF;
       const closeness = Math.max(0, 1 - u_signed * u_signed);
 
-      // Radial framing scales with planet's heliocentric radius so outer
-      // planets get a wider view.
-      const rAU = Math.hypot(mid[0], mid[1], mid[2]) / 1.495978707e8;
-      const farOff = Math.max(1.5, rAU * 0.3);
-      const closeOff = Math.max(0.4, rAU * 0.08);
-      const off = farOff * (1 - closeness) + closeOff * closeness;
+      // Chase-cam position: on the line from planet through spacecraft, on the
+      // far side of the spacecraft (so camera looks across the spacecraft
+      // toward the planet), at a distance that keeps us well outside the
+      // rendered planet mesh.
+      const planetToSc = scScene.clone().sub(planetPos);
+      const scDist = planetToSc.length();
+      const bodyRaw = String(fb.body).toLowerCase();
+      const renderedPlanetRadius = (PLANET_CONFIG[bodyRaw]?.size ?? 0.05);
+      // Target camera distance from the planet for a pleasing framing. We
+      // want the rendered planet to occupy a good fraction of the FOV.
+      const camDistFromPlanet = Math.max(renderedPlanetRadius * 4, scDist + renderedPlanetRadius * 1.5);
+      const dirFromPlanet = scDist > 1e-6
+        ? planetToSc.clone().normalize()
+        : new THREE.Vector3(1, 0.2, 0.3).normalize();
+      const firstPersonCam = planetPos.clone().add(dirFromPlanet.multiplyScalar(camDistFromPlanet));
 
-      // Blend the user's prior camera with the cinematic camera. At the edges
-      // of the detection zone (|u_signed| ≈ 1) we use the prior camera, so the
-      // transition is imperceptible. At center (u_signed = 0) we're at full
-      // close-up. Everything is a deterministic function of animationProgress:
-      // no ease rate, no frame-rate dependence, no catch-up stutter.
-      const cinematicCam = targetPos.clone().add(
-        flybyBasisRef.current.offsetDir.clone().multiplyScalar(off)
-      );
-      const blend = closeness;   // 0 at edge, 1 at midpoint
+      // Target: aim at the planet (for approach) and progressively shift
+      // toward the spacecraft as closeness grows so the spacecraft stays in
+      // frame during the close-up.
+      const lookTarget = planetPos.clone().lerp(scScene, 0.25 * closeness);
 
+      // Blend with prior free camera at the edges of the detection zone so
+      // the transition in/out is seamless.
       if (priorCamRef.current) {
-        const blendedCam = priorCamRef.current.pos.clone().lerp(cinematicCam, blend);
-        const blendedTarget = priorCamRef.current.target.clone().lerp(targetPos, blend);
+        const blendedCam = priorCamRef.current.pos.clone().lerp(firstPersonCam, closeness);
+        const blendedTarget = priorCamRef.current.target.clone().lerp(lookTarget, closeness);
         camera.position.copy(blendedCam);
         if (controlsRef.current) {
           controlsRef.current.target.copy(blendedTarget);
@@ -499,15 +538,14 @@ function CameraController({ animatedPlanets }: { animatedPlanets: { name: string
           camera.lookAt(blendedTarget);
         }
       } else {
-        camera.position.copy(cinematicCam);
+        camera.position.copy(firstPersonCam);
         if (controlsRef.current) {
-          controlsRef.current.target.copy(targetPos);
+          controlsRef.current.target.copy(lookTarget);
           controlsRef.current.update();
         } else {
-          camera.lookAt(targetPos);
+          camera.lookAt(lookTarget);
         }
       }
-      // Silence unused `delta` warning in this branch
       void delta;
     } else if (priorCamRef.current) {
       // Leaving the detection zone — snap back to prior (blend already reached
